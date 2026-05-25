@@ -1,0 +1,91 @@
+@model LDMS_Final.ViewModels.LoginViewModel
+@{
+    ViewData["Title"] = "Login";
+    Layout = "_LoginLayout";
+}
+
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    var siteKey = Configuration["GoogleReCaptcha:SiteKey"];
+}
+
+<div class="container d-flex align-items-center justify-content-center">
+    <div class="row justify-content-center w-100">
+        <div class="col-12 col-sm-10 col-md-8 col-lg-5">
+            <div class="card shadow-lg border-0 rounded-4 login-card">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <img src="~/images/Logo IT15.png" alt="LDMS Logo" class="login-logo mb-1"
+                             onerror="this.style.display='none'" />
+                        <h2 class="fw-bold">Login</h2>
+                    </div>
+
+                    <form asp-action="Login" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <div class="mb-3">
+                            <input asp-for="UserNameOrEmail" class="form-control form-control-lg"
+                                   placeholder="Username or Email" />
+                            <span asp-validation-for="UserNameOrEmail" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="position-relative">
+                                <input asp-for="Password" id="Password" class="form-control form-control-lg pe-5"
+                                       placeholder="Password" />
+                                <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+                                   id="togglePasswordIcon" style="cursor: pointer;" onclick="togglePassword()"></i>
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger"></span>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input asp-for="RememberMe" class="form-check-input" />
+                            <label asp-for="RememberMe" class="form-check-label"></label>
+                        </div>
+
+                        @* reCAPTCHA v2 widget *@
+                        <div class="mb-3">
+                            <div class="g-recaptcha" data-sitekey="@siteKey"></div>
+                            @if (ViewData["RecaptchaError"] != null)
+                            {
+                                <div class="text-danger small mt-1">@ViewData["RecaptchaError"]</div>
+                            }
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            Login
+                        </button>
+
+                        <a class="btn btn-outline-secondary btn-lg w-100 mt-3" asp-controller="Registration"
+                           asp-action="Register">
+                            Sign up
+                        </a>
+
+                        <a class="btn btn-link w-100 mt-2 text-secondary text-decoration-none"
+                           asp-controller="BuyerHome" asp-action="Index">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Shop
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        function togglePassword() {
+        const input = document.getElementById('Password');
+        const icon = document.getElementById('togglePasswordIcon');
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        icon.classList.toggle('bi-eye', !isPassword);
+        icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+    </script>
+}

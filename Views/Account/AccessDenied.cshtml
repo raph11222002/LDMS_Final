@@ -1,0 +1,29 @@
+@{
+    ViewData["Title"] = "Access Denied";
+    Layout = "_LoginLayout";
+}
+
+<div class="container min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="row justify-content-center w-100">
+        <div class="col-12 col-sm-8 col-md-5 text-center">
+            <div class="card shadow-lg border-0 rounded-4 p-5">
+                <div class="mb-3">
+                    <i class="bi bi-shield-lock text-danger" style="font-size: 3rem;"></i>
+                </div>
+                <h2 class="fw-bold mb-2">Access Denied</h2>
+                <p class="text-muted mb-4">You don't have permission to view that page.</p>
+                <div class="d-flex flex-column gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="history.back()">
+                        <i class="bi bi-arrow-left me-2"></i>Go Back
+                    </button>
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-box-arrow-left me-2"></i>Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

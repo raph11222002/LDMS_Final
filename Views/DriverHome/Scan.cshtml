@@ -1,0 +1,185 @@
+@{
+    ViewData["Title"] = "Scan QR Code";
+    Layout = "_Layout";
+}
+
+<div class="container py-4 px-4" style="max-width:520px;">
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+        <h1 class="text-dark fw-bold mt-2 mb-0">Scan QR Code</h1>
+        <p class="text-dark">Scan the shipping label QR code to update order status.</p>
+    </div>
+
+    <!-- Scanner -->
+    <div class="card border-0 rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <div id="qr-reader" style="width:100%; border-radius:12px; overflow:hidden;"></div>
+            <div class="text-center mt-3">
+                <button id="startScanBtn" class="btn btn-dark rounded-pill px-4">
+                    <i class="bi bi-camera me-2"></i>Start Camera
+                </button>
+                <button id="stopScanBtn" class="btn btn-outline-secondary rounded-pill px-4 d-none">
+                    <i class="bi bi-stop-circle me-2"></i>Stop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual input fallback -->
+    <div class="card border-0 rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-keyboard me-2"></i>Or enter order number manually
+            </h6>
+            <div class="input-group">
+                <input type="text" id="manualInput" class="form-control rounded-start-3"
+                       placeholder="e.g. ORD-20260524-0001" />
+                <button class="btn btn-dark" type="button" id="manualLookupBtn">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result card -->
+    <div id="resultCard" class="card border-0 rounded-4 shadow-lg d-none">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-box-seam me-2 text-primary"></i>Order Found
+            </h6>
+            <div class="mb-2"><small class="text-dark">Order Number</small>
+                <div class="fw-semibold" id="resOrderNumber">—</div>
+            </div>
+            <div class="mb-2"><small class="text-dark">Destination Hub</small>
+                <div class="fw-semibold" id="resHubLabel">—</div>
+            </div>
+            <div class="mb-2"><small class="text-dark">Buyer</small>
+                <div id="resBuyerName">—</div>
+            </div>
+            <div class="mb-3"><small class="text-dark">Your Role</small>
+                <div><span class="badge bg-secondary" id="resDriverLabel">—</span></div>
+            </div>
+
+            <div id="actionButtons" class="d-grid gap-2"></div>
+            <div id="resultError" class="text-danger small mt-2 d-none"></div>
+        </div>
+    </div>
+
+    <div id="notFoundCard" class="card border-0 rounded-4 shadow-lg border-danger d-none">
+        <div class="card-body p-4 text-center text-danger">
+            <i class="bi bi-exclamation-circle fs-2 mb-2 d-block"></i>
+            <div class="fw-semibold" id="notFoundMsg">Order not found or not assigned to you.</div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+        let html5QrCode = null;
+        let currentStopId = null;
+        let currentStatus = null;
+
+        const startBtn = document.getElementById('startScanBtn');
+        const stopBtn = document.getElementById('stopScanBtn');
+        const resultCard = document.getElementById('resultCard');
+        const notFound = document.getElementById('notFoundCard');
+
+        // ── Start camera ──────────────────────────────────────────────
+        startBtn.addEventListener('click', () => {
+        html5QrCode = new Html5Qrcode('qr-reader');
+        html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => {
+        html5QrCode.stop();
+        startBtn.classList.remove('d-none');
+        stopBtn.classList.add('d-none');
+        lookupOrder(decodedText.trim());
+        },
+        () => { }
+        );
+        startBtn.classList.add('d-none');
+        stopBtn.classList.remove('d-none');
+        });
+
+        stopBtn.addEventListener('click', () => {
+        if (html5QrCode) html5QrCode.stop();
+        startBtn.classList.remove('d-none');
+        stopBtn.classList.add('d-none');
+        });
+
+        // ── Manual lookup ──────────────────────────────────────────────
+        document.getElementById('manualLookupBtn').addEventListener('click', () => {
+        const val = document.getElementById('manualInput').value.trim();
+        if (val) lookupOrder(val);
+        });
+        document.getElementById('manualInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+        const val = document.getElementById('manualInput').value.trim();
+        if (val) lookupOrder(val);
+        }
+        });
+
+        // ── Lookup ────────────────────────────────────────────────────
+        async function lookupOrder(orderNumber) {
+        resultCard.classList.add('d-none');
+        notFound.classList.add('d-none');
+
+        const res = await fetch(`/DriverHome/LookupOrder?orderNumber=${encodeURIComponent(orderNumber)}`);
+        const data = await res.json();
+
+        if (!data.found) {
+        document.getElementById('notFoundMsg').textContent = data.message;
+        notFound.classList.remove('d-none');
+        return;
+        }
+
+        currentStopId = data.stopId;
+        currentStatus = data.status;
+
+        document.getElementById('resOrderNumber').textContent = data.orderNumber;
+        document.getElementById('resHubLabel').textContent = data.hubLabel;
+        document.getElementById('resBuyerName').textContent = data.buyerName;
+        document.getElementById('resDriverLabel').textContent = data.driverLabel;
+
+        const btns = document.getElementById('actionButtons');
+        btns.innerHTML = '';
+
+        if (data.status === 'Pending') {
+        btns.innerHTML = `
+        <form method="post" action="/DriverHome/UpdateStatus">
+        <input type="hidden" name="__RequestVerificationToken" value="${getAntiForgeryToken()}" />
+        <input type="hidden" name="stopId" value="${data.stopId}" />
+        <input type="hidden" name="action" value="start" />
+        <button type="submit" class="btn btn-dark rounded-pill w-100">
+        <i class="bi bi-truck me-2"></i>Start Trip
+        </button>
+        </form>`;
+        } else if (data.status === 'InTransit') {
+        btns.innerHTML = `
+        <form method="post" action="/DriverHome/UpdateStatus">
+        <input type="hidden" name="__RequestVerificationToken" value="${getAntiForgeryToken()}" />
+        <input type="hidden" name="stopId" value="${data.stopId}" />
+        <input type="hidden" name="action" value="arrived" />
+        <button type="submit" class="btn btn-success rounded-pill w-100">
+        <i class="bi bi-check2 me-2"></i>Mark Arrived at Hub
+        </button>
+        </form>`;
+        }
+
+        resultCard.classList.remove('d-none');
+        }
+
+        function getAntiForgeryToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+        }
+    </script>
+
+    <!-- Hidden antiforgery token for JS form submission -->
+    <form style="display:none;">
+        @Html.AntiForgeryToken()
+    </form>
+}

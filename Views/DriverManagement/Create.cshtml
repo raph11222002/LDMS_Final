@@ -1,0 +1,215 @@
+@model LDMS_Final.ViewModels.CreateUserViewModel
+@using LDMS_Final.Models
+@{
+    ViewData["Title"] = "Add Driver";
+    Layout = "_Layout";
+    bool isAdmin = User.IsInRole("Admin");
+}
+
+<style>
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+        -webkit-text-fill-color: #212529 !important;
+    }
+
+    .section-label {
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #6c757d;
+        margin-bottom: .75rem;
+        padding-bottom: .4rem;
+        border-bottom: 1.5px solid #f0f0f0;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #111;
+        box-shadow: 0 0 0 .2rem rgba(0, 0, 0, .08);
+    }
+
+    .form-control,
+    .form-select {
+        border-color: #dee2e6;
+        border-radius: 8px;
+        font-size: .92rem;
+    }
+</style>
+
+<div class="container-fluid py-4 px-4">
+
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i>Back to Driver List
+        </a>
+        <h1 class="fw-bold mb-0" style="color:#111;">Create Driver Account</h1>
+        <p class="text-dark small mt-1 mb-0">Fill in the details below to register a new driver.</p>
+    </div>
+
+    <div class="row justify-content-start">
+        <div class="col-12 col-xl-8">
+            <form asp-action="Create" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="SelectedRole" value="Driver" />
+
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-4"></div>
+
+                <!-- ── Personal Information ── -->
+                <div class="card border-0 rounded-4 shadow-lg mb-2">
+                    <div class="card-body p-4">
+                        <div class="section-label">
+                            <i class="bi bi-person me-1"></i>Personal Information
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label asp-for="FullName" class="form-label fw-semibold small"></label>
+                                <input asp-for="FullName" class="form-control" placeholder="Juan dela Cruz" />
+                                <span asp-validation-for="FullName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="Gender" class="form-label fw-semibold small"></label>
+                                <select asp-for="Gender" class="form-select">
+                                    <option value="">— Select —</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                    <option>Prefer not to say</option>
+                                </select>
+                                <span asp-validation-for="Gender" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="ContactNumber" class="form-label fw-semibold small"></label>
+                                <input asp-for="ContactNumber" class="form-control" type="tel" inputmode="numeric"
+                                       placeholder="09XX XXX XXXX"
+                                       oninput="this.value = this.value.replace(/[^0-9+\-\s]/g, '')" />
+                                <span asp-validation-for="ContactNumber" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Assignment & Vehicle ── -->
+                <div class="card border-0 rounded-4 shadow-lg mb-2">
+                    <div class="card-body p-4">
+                        <div class="section-label">
+                            <i class="bi bi-truck me-1"></i>Assignment & Vehicle
+                        </div>
+                        <div class="row g-3">
+
+                            @if (isAdmin)
+                            {
+                                <div class="col-12 col-md-6">
+                                    <label asp-for="AssignedHub" class="form-label fw-semibold small">Assigned Hub</label>
+                                    <select asp-for="AssignedHub" class="form-select">
+                                        <option value="">Warehouse (Driver 1)</option>
+                                        @foreach (var hub in DeliveryHubInfo.HubSequence)
+                                        {
+                                            <option value="@((int)hub)">@DeliveryHubInfo.Hubs[hub].Label</option>
+                                        }
+                                    </select>
+                                    <div class="small mt-1" style="color:#6c757d;">
+                                        Leave blank to assign as warehouse driver.
+                                    </div>
+                                    <span asp-validation-for="AssignedHub" class="text-danger small"></span>
+                                </div>
+                            }
+
+                            <div class="col-12 col-md-6">
+                                <label asp-for="VehicleType" class="form-label fw-semibold small">Vehicle Type</label>
+                                <select asp-for="VehicleType" class="form-select">
+                                    <option value="">— Select vehicle —</option>
+                                    <option value="4-Wheels Closed Van">4-Wheels Closed Van</option>
+                                    <option value="Motorcycle">Motorcycle</option>
+                                </select>
+                                <span asp-validation-for="VehicleType" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                                <label asp-for="PlateNumber" class="form-label fw-semibold small">Plate Number</label>
+                                <input asp-for="PlateNumber" class="form-control" placeholder="e.g. ABC 1234"
+                                       oninput="this.value = this.value.toUpperCase()" />
+                                <span asp-validation-for="PlateNumber" class="text-danger small"></span>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Account Credentials ── -->
+                <div class="card border-0 rounded-4 shadow-lg mb-3">
+                    <div class="card-body p-4">
+                        <div class="section-label">
+                            <i class="bi bi-shield-lock me-1"></i>Account Credentials
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label asp-for="UserName" class="form-label fw-semibold small"></label>
+                                <input asp-for="UserName" class="form-control" placeholder="juandc" />
+                                <div class="small mt-1" style="color:#6c757d;">
+                                    Email: <code>username@ldms.com</code>
+                                </div>
+                                <span asp-validation-for="UserName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6"></div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="Password" class="form-label fw-semibold small"></label>
+                                <div class="position-relative">
+                                    <input asp-for="Password" id="Password" class="form-control pe-5"
+                                           autocomplete="new-password" />
+                                    <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3"
+                                       style="cursor:pointer;color:#6c757d;" id="togglePasswordIcon"
+                                       onclick="togglePassword()"></i>
+                                </div>
+                                <span asp-validation-for="Password" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label asp-for="ConfirmPassword" class="form-label fw-semibold small"></label>
+                                <div class="position-relative">
+                                    <input asp-for="ConfirmPassword" id="ConfirmPassword" class="form-control pe-5"
+                                           autocomplete="new-password" />
+                                    <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3"
+                                       style="cursor:pointer;color:#6c757d;" id="toggleConfirmIcon"
+                                       onclick="toggleConfirm()"></i>
+                                </div>
+                                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Actions ── -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-dark rounded-pill px-4">
+                        <i class="bi bi-person-plus me-2"></i>Create Driver
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePassword() {
+            const input = document.getElementById('Password');
+            const icon = document.getElementById('togglePasswordIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+        function toggleConfirm() {
+            const input = document.getElementById('ConfirmPassword');
+            const icon = document.getElementById('toggleConfirmIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+    </script>
+}

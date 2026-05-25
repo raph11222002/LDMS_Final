@@ -1,0 +1,398 @@
+﻿@inject Microsoft.AspNetCore.Identity.UserManager<LDMS_Final.Models.ApplicationUser> UserManager
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - LDMS_Final</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/LDMS_Final.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+</head>
+<body>
+    @{ 
+        var user = User.Identity?.IsAuthenticated == true ? await UserManager.GetUserAsync(User) : null;
+        var fullName = user?.FullName?.Trim() ?? User.Identity?.Name ?? "User";
+        var userInitial = !string.IsNullOrWhiteSpace(fullName) ? fullName.Trim()[0].ToString().ToUpper() : "U";
+        var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+        var action = ViewContext.RouteData.Values["action"]?.ToString();
+    }
+
+    <div class="app-shell">
+        <nav class="sidebar">
+            <div class="sidebar-inner">
+
+                <!-- Brand -->
+                <div class="sidebar-brand">
+                    <div class="sidebar-logo-wrap">
+                        <img src="~/images/Logo IT15 with name.png" alt="LDMS Logo" onerror="this.style.display='none'" />
+                    </div>
+                </div>
+
+                <hr class="sidebar-divider" />
+
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <!-- User -->
+                    <div class="sidebar-user">
+                        <div class="user-avatar">@userInitial</div>
+                        <div class="user-info">
+                            <div class="user-name text-capitalize">@fullName</div>
+                            <div class="user-sub">@User.Identity?.Name</div>
+                        </div>
+                    </div>
+
+                    <hr class="sidebar-divider" />
+                }
+
+                <!-- Nav -->
+                <ul class="nav flex-column sidebar-nav">
+                    @if (User.Identity?.IsAuthenticated != true)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "BuyerHome" ? "active" : "")"
+                               asp-controller="BuyerHome" asp-action="Index">
+                                <i class="bi bi-shop"></i><span>Shop</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2" asp-controller="Account" asp-action="Login">
+                                <i class="bi bi-box-arrow-in-right"></i><span>Login</span>
+                            </a>
+                        </li>
+                    }
+                    else if (User.IsInRole("SuperAdmin"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "Dashboard" ? "active" : "")"
+                               asp-controller="Dashboard" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "AdminAccounts" ? "active" : "")"
+                               asp-controller="AdminAccounts" asp-action="Index">
+                                <i class="bi bi-people"></i><span>Admin Accounts</span>
+                            </a>
+                        </li>
+                    }
+                    else if (User.IsInRole("Admin"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "AdminHome" ? "active" : "")"
+                               asp-controller="AdminHome" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "StaffManagement" ? "active" : "")"
+                               asp-controller="StaffManagement" asp-action="Index">
+                                <i class="bi bi-people"></i><span>Staff</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverManagement" ? "active" : "")"
+                               asp-controller="DriverManagement" asp-action="Index">
+                                <i class="bi bi-truck-front"></i><span>Drivers</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "ProductManagement" ? "active" : "")"
+                               asp-controller="ProductManagement" asp-action="Index">
+                                <i class="bi bi-bag"></i><span>Products</span>
+                            </a>
+                        </li>
+                    }
+                    else if (User.IsInRole("LogisticStaff"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "LogisticStaffHome" ? "active" : "")"
+                               asp-controller="LogisticStaffHome" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "LogisticStaffOrder" ? "active" : "")"
+                               asp-controller="LogisticStaffOrder" asp-action="Index">
+                                <i class="bi bi-truck"></i>
+                                <span>Orders</span>
+                                <span class="badge bg-danger rounded-pill ms-auto notif-badge d-none"
+                                      id="sidebarNotifBadge">0</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverManagement" ? "active" : "")"
+                               asp-controller="DriverManagement" asp-action="Index">
+                                <i class="bi bi-truck-front"></i><span>Drivers</span>
+                            </a>
+                        </li>
+                    }
+
+                    else if (User.IsInRole("WarehouseStaff"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "WarehouseStaffHome" && action == "Index" ? "active" : "")"
+                               asp-controller="WarehouseStaffHome" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(action == "Products" || action == "ProductDetail" ? "active" : "")"
+                               asp-controller="WarehouseStaffHome" asp-action="Products">
+                                <i class="bi bi-box-seam"></i><span>Products & Stock</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "WarehouseOrder" ? "active" : "")"
+                               asp-controller="WarehouseOrder" asp-action="Index">
+                                <i class="bi bi-inbox"></i><span>Orders</span>
+                            </a>
+                        </li>
+                    }
+                    else if (User.IsInRole("Driver"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverHome" ? "active" : "")"
+                               asp-controller="DriverHome" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                            </a>
+                        </li>
+                    }
+                    else if (User.IsInRole("Buyer"))
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "BuyerHome" && action == "Index" ? "active" : "")"
+                               asp-controller="BuyerHome" asp-action="Index">
+                                <i class="bi bi-shop"></i><span>Shop</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "Cart" ? "active" : "")"
+                               asp-controller="Cart" asp-action="Index">
+                                <i class="bi bi-cart3"></i><span>Cart</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "Orders" ? "active" : "")"
+                               asp-controller="Orders" asp-action="Index">
+                                <i class="bi bi-bag-check"></i><span>My Orders</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(action == "Favorites" ? "active" : "")"
+                               asp-controller="BuyerHome" asp-action="Favorites">
+                                <i class="bi bi-heart"></i><span>Favorites</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <div class="sidebar-footer mb-4">
+                    <form asp-controller="Account" asp-action="Logout" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="sidebar-logout">
+                            <i class="bi bi-box-arrow-left"></i>
+                            <span>Logout</span>
+                        </button>
+                    </form>
+                </div>
+            }
+        </nav>
+
+        <div class="content-area">
+            <div
+                class="mobile-topbar d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
+                <button class="btn btn-light sidebar-toggle" type="button" aria-label="Toggle navigation">
+                    <i class="bi bi-list"></i>
+                </button>
+                <div></div>
+            </div>
+
+            <main role="main" class="content-main flex-grow-1">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    <div class="sidebar-backdrop"></div>
+
+    <!-- Portal for page-specific modals (outside content-area) -->
+    @await RenderSectionAsync("Modals", required: false)
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.querySelector('.sidebar-backdrop');
+            const toggle = document.querySelector('.sidebar-toggle');
+            if (!sidebar || !backdrop || !toggle) return;
+            const closeSidebar = () => {
+                document.body.classList.remove('sidebar-open');
+            };
+            toggle.addEventListener('click', function(){
+                document.body.classList.toggle('sidebar-open');
+            });
+            backdrop.addEventListener('click', closeSidebar);
+        });
+
+        
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+
+    @if (User.IsInRole("LogisticStaff"))
+    {
+        <text>
+            <script>
+                (function pollNotifications() {
+                const badge = document.getElementById('sidebarNotifBadge');
+                if (!badge) return;
+
+                async function refresh() {
+                try {
+                const res = await fetch('/LogisticStaffOrder/UnreadCount');
+                const data = await res.json();
+                if (data.count > 0) {
+                badge.textContent = data.count > 99 ? '99+' : data.count;
+                badge.classList.remove('d-none');
+                } else {
+                badge.classList.add('d-none');
+                }
+                } catch (_) { /* silently ignore network errors */ }
+                }
+
+                refresh();
+                setInterval(refresh, 30000);
+                })();
+            </script>
+        </text>
+    }
+
+    <!-- Shipping Label Preview Modal -->
+    <div class="modal fade" id="shippingLabelModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold">Shipping Label Preview</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+
+                    <!-- SHIPPING BILL matching the sample design -->
+                    <div id="shippingBill"
+                         style="border: 2px solid #000; font-family: Arial, sans-serif; background: #fff; padding: 0; max-width: 600px; margin: 0 auto;">
+
+                        <!-- Logo Header -->
+                        <div style="border-bottom: 2px solid #000; text-align: center; padding: 14px 20px;">
+                            <span style="font-size: 1.4rem; font-weight: 900; letter-spacing:1px;">
+                                <img src="/images/Logo IT15 with name.png" style="height:50px;" /> LD Gow
+                            </span>
+                        </div>
+
+                        <!-- Barcode area -->
+                        <div style="border-bottom: 2px solid #000; text-align: center; padding: 28px 20px;">
+                            <div id="barcodeContainer"></div>
+                        </div>
+
+                        <!-- Receiver / QR + Payment row -->
+                        <div style="display: flex; border-bottom: 2px solid #000;">
+                            <!-- Left: Receiver + Sender -->
+                            <div style="flex: 1.6; border-right: 2px solid #000; padding: 0;">
+                                <!-- Receiver -->
+                                <div style="border-bottom: 1.5px solid #000; padding: 14px 16px;">
+                                    <div style="font-weight: 900; font-size: 0.85rem; margin-bottom: 4px;">Receiver:
+                                    </div>
+                                    <div id="lblName" style="font-size: 0.95rem;"></div>
+                                    <div id="lblContact" style="font-size: 0.9rem;"></div>
+                                    <div id="lblAddress" style="font-size: 0.9rem;"></div>
+                                </div>
+                                <!-- Sender -->
+                                <div style="padding: 14px 16px;">
+                                    <div style="font-weight: 900; font-size: 0.85rem; margin-bottom: 4px;">Sender:</div>
+                                    <div style="font-size: 0.9rem;">Ld Gow</div>
+                                    <div style="font-size: 0.9rem;">Davao City</div>
+                                </div>
+                            </div>
+                            <!-- Right: QR Code -->
+                            <div
+                                style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px;">
+                                <div id="qrContainer" style="text-align:center;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Weight / Order No / Items / COD Amount + Payment badge row -->
+                        <div style="display: flex;">
+                            <!-- Left: details -->
+                            <div
+                                style="flex: 1.6; border-right: 2px solid #000; padding: 14px 16px; font-size: 0.9rem;">
+                                <div><strong>Weight:</strong> <span id="lblWeight"></span> KG</div>
+                                <div><strong>Order No.:</strong> <span id="lblOrderNo"></span></div>
+                                <div><strong>Items:</strong> <span id="lblItems"></span></div>
+                                <div><strong>COD Amount:</strong> <span id="lblCod"></span></div>
+                            </div>
+                            <!-- Right: Payment method badge -->
+                            <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
+                                <span id="lblPayment" style="font-size: 22px; font-weight: 700;"></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <a id="downloadLabelBtn" href="#" class="btn btn-dark rounded-pill px-4">
+                        <i class="bi bi-download me-2"></i>Download PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+    <script>
+        function previewLabel(id, orderNo, name, contact, address, payment, items, total) {
+            document.getElementById('lblName').textContent = name;
+            document.getElementById('lblContact').textContent = contact;
+            document.getElementById('lblAddress').textContent = address;
+            document.getElementById('lblOrderNo').textContent = orderNo;
+            document.getElementById('lblItems').textContent = items;
+            document.getElementById('lblCod').textContent = parseFloat(total).toFixed(2);
+            document.getElementById('lblPayment').textContent = payment;
+            document.getElementById('lblWeight').textContent = 'See PDF';
+
+            const barcodeContainer = document.getElementById('barcodeContainer');
+            barcodeContainer.innerHTML = '<svg id="barcodeSvg"></svg>';
+            JsBarcode('#barcodeSvg', orderNo, {
+                format: 'CODE128',
+                width: 2.5,
+                height: 80,
+                displayValue: true,
+                fontSize: 14,
+                margin: 10
+            });
+
+            const qrContainer = document.getElementById('qrContainer');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+                text: orderNo,
+                width: 110,
+                height: 110,
+                colorDark: '#000',
+                colorLight: '#fff'
+            });
+
+            document.getElementById('downloadLabelBtn').href = `/WarehouseOrder/DownloadLabel/${id}`;
+
+            new bootstrap.Modal(document.getElementById('shippingLabelModal')).show();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+@model LDMS_Final.ViewModels.AdminDashboardViewModel
+@{
+    ViewData["Title"] = "Admin Dashboard";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4">
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1 text-dark">Admin Dashboard</h1>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Total Staff -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <a asp-controller="StaffManagement" asp-action="Index" class="text-decoration-none">
+                <div class="dashboard-card dashboard-card--blue h-100">
+                    <div class="dashboard-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="dashboard-card-title">Total Staff</h5>
+                            <div class="dashboard-card-icon">
+                                <i class="bi bi-people-fill"></i>
+                            </div>
+                        </div>
+                        <div class="dashboard-card-number">@Model.TotalStaffCount</div>
+                        <p class="dashboard-card-desc mb-3">Click to manage all staff accounts.</p>
+                        <div class="d-flex gap-3">
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-truck me-1"></i>
+                                <span>Logistic: @Model.LogisticStaffCount</span>
+                            </div>
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-building me-1"></i>
+                                <span>Warehouse: @Model.WarehouseStaffCount</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Total Drivers -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <a asp-controller="DriverManagement" asp-action="Index" class="text-decoration-none">
+                <div class="dashboard-card dashboard-card--teal h-100">
+                    <div class="dashboard-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="dashboard-card-title">Total Drivers</h5>
+                            <div class="dashboard-card-icon">
+                                <i class="bi bi-truck-front-fill"></i>
+                            </div>
+                        </div>
+                        <div class="dashboard-card-number">@Model.TotalDriverCount</div>
+                        <p class="dashboard-card-desc mb-3">Click to view driver records.</p>
+                        <div class="d-flex gap-3">
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-check-circle me-1"></i>
+                                <span>Active: @Model.ActiveDriverCount</span>
+                            </div>
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-x-circle me-1"></i>
+                                <span>Inactive: @(Model.TotalDriverCount - Model.ActiveDriverCount)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Total Products -->
+        <div class="col-12 col-sm-6 col-lg-4">
+            <a asp-controller="ProductManagement" asp-action="Index" class="text-decoration-none">
+                <div class="dashboard-card dashboard-card--indigo h-100">
+                    <div class="dashboard-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="dashboard-card-title">Total Products</h5>
+                            <div class="dashboard-card-icon">
+                                <i class="bi bi-bag-fill"></i>
+                            </div>
+                        </div>
+                        <div class="dashboard-card-number">@Model.TotalProductCount</div>
+                        <p class="dashboard-card-desc mb-3">Click to manage product listings.</p>
+                        <div class="d-flex gap-3">
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-check-circle me-1"></i>
+                                <span>Active: @Model.ActiveProductCount</span>
+                            </div>
+                            <div class="dashboard-card-sub fs-6 fw-semibold">
+                                <i class="bi bi-x-circle me-1"></i>
+                                <span>Inactive: @(Model.TotalProductCount - Model.ActiveProductCount)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>

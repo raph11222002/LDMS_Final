@@ -1,0 +1,354 @@
+@model LDMS_Final.Models.Order?
+@{
+    ViewData["Title"] = "Warehouse QR Scan";
+    Layout = "_Layout";
+}
+
+<style>
+    .scanner-shell {
+        max-width: 1400px;
+    }
+
+    .scanner-card {
+        border: 0;
+        border-radius: 1.5rem;
+        box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .08);
+        overflow: hidden;
+    }
+
+    .scanner-header h1 {
+        font-size: clamp(1.5rem, 2.5vw, 2.25rem);
+    }
+
+    .scanner-subtitle {
+        font-size: clamp(.95rem, 1.4vw, 1.05rem);
+    }
+
+    #qr-reader {
+        width: 100%;
+        min-height: 280px;
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+
+    @@media
+    (min-width: 576px) {
+        #qr-reader {
+            min-height: 340px;
+        }
+    }
+
+    @@media
+    (min-width: 992px) {
+        #qr-reader {
+            min-height: 420px;
+        }
+    }
+
+    .info-label {
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .order-item {
+        padding: .5rem 0;
+        border-bottom: 1px solid rgba(0, 0, 0, .06);
+    }
+
+    .order-item:last-child {
+        border-bottom: 0;
+    }
+
+    .action-stack .btn {
+        min-height: 48px;
+    }
+</style>
+
+<div class="container-fluid py-3 py-md-4 px-2 px-sm-3 px-lg-4 scanner-shell">
+    <div class="scanner-header mb-3 mb-md-4">
+        <h1 class="text-dark fw-bold mb-1">Warehouse QR Scanner</h1>
+        <p class="text-dark mb-0 scanner-subtitle">
+            Scan the shipping label QR code or enter an order number manually.
+        </p>
+    </div>
+
+    @if (Model == null)
+    {
+        <div class="row g-2 g-md-4 align-items-stretch">
+            <div class="col-12 col-xl-7">
+                <div class="card scanner-card h-100">
+                    <div class="card-body p-3 p-sm-4 p-lg-4">
+                        <div
+                            class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
+                            <div>
+                                <h5 class="fw-bold mb-1">QR Scanner</h5>
+                                <div class="text-muted small">Use your device camera to scan the order QR code.</div>
+                            </div>
+                        </div>
+
+                        <div id="qr-reader" class="w-100"></div>
+
+                        <div id="qr-camera-controls" class="mt-3"></div>
+
+                        <div class="d-grid gap-2 d-sm-flex mt-3 action-stack">
+                            <button id="start-camera-btn" type="button" class="btn btn-dark flex-fill rounded-pill">
+                                <i class="bi bi-camera-video me-2"></i> Start Camera
+                            </button>
+
+                            <button id="stop-camera-btn" type="button"
+                                    class="btn btn-outline-secondary flex-fill rounded-pill" style="display:none;">
+                                <i class="bi bi-stop-circle me-2"></i> Stop Camera
+                            </button>
+                        </div>
+
+                        <div id="qr-message" class="alert alert-success small mt-3 mb-0 py-2" style="display:none;"></div>
+                        <div id="qr-error" class="alert alert-danger small mt-3 mb-0 py-2" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-5">
+                <div class="card scanner-card h-100">
+                    <div class="card-body p-3 p-sm-4 p-lg-4">
+                        <h5 class="fw-bold mb-3">Manual Lookup</h5>
+                        <form method="get" asp-action="Scan" class="needs-validation" novalidate>
+                            <div class="mb-3">
+                                <label for="manualOrderNumber" class="form-label fw-semibold">Order Number</label>
+                                <input id="manualOrderNumber" type="text" name="orderNumber"
+                                       class="form-control form-control-lg" placeholder="ORD-20260520-0001" autocomplete="off"
+                                       required />
+                            </div>
+
+                            <button type="submit" class="btn btn-dark btn-lg w-100 rounded-pill">
+                                <i class="bi bi-search me-2"></i> Lookup Order
+                            </button>
+                        </form>
+
+                        <hr class="my-4">
+
+                        <div class="text-muted small">
+                            Tip: On smaller screens, rotate your device to landscape for a bigger camera preview.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script src="~/js/html5-qrcode.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+        const readerEl = document.getElementById('qr-reader');
+        if (!readerEl) return;
+
+        let qrScanner = null;
+        let activeCameraId = null;
+
+        const startBtn = document.getElementById('start-camera-btn');
+        const stopBtn = document.getElementById('stop-camera-btn');
+        const errorEl = document.getElementById('qr-error');
+        const messageEl = document.getElementById('qr-message');
+
+        function showError(msg) {
+        if (!errorEl) return;
+        errorEl.textContent = msg;
+        errorEl.style.display = 'block';
+        }
+
+        function hideError() {
+        if (errorEl) errorEl.style.display = 'none';
+        }
+
+        function showMessage(msg) {
+        if (!messageEl) return;
+        messageEl.textContent = msg;
+        messageEl.style.display = 'block';
+        }
+
+        function hideMessage() {
+        if (messageEl) messageEl.style.display = 'none';
+        }
+
+        function getQrBoxSize() {
+        const width = readerEl.clientWidth || 300;
+        const size = Math.floor(Math.min(width * 0.75, 280));
+        return Math.max(size, 180);
+        }
+
+        function getScannerConfig() {
+        return {
+        fps: 10,
+        qrbox: {
+        width: getQrBoxSize(),
+        height: getQrBoxSize()
+        }
+        };
+        }
+
+        function extractOrderNumber(decodedText) {
+        const text = (decodedText || '').trim();
+
+        try {
+        const url = new URL(text, window.location.origin);
+        const orderFromQuery = url.searchParams.get('orderNumber');
+
+        if (orderFromQuery && orderFromQuery.trim() !== '') {
+        return orderFromQuery.trim();
+        }
+
+        const lastSegment = url.pathname.split('/').filter(Boolean).pop();
+        if (lastSegment) {
+        return lastSegment.trim();
+        }
+        } catch (e) {
+        // Not a URL, treat as raw order number.
+        }
+
+        return text;
+        }
+
+        function onScanSuccess(decodedText) {
+        const orderNumber = extractOrderNumber(decodedText);
+
+        hideError();
+        showMessage('✓ Scanned: ' + orderNumber);
+
+        if (qrScanner) {
+        qrScanner.stop().catch(() => { });
+        }
+
+        setTimeout(() => {
+        window.location.href =
+        '@Url.Action("Scan", "WarehouseOrder")?orderNumber=' +
+        encodeURIComponent(orderNumber);
+        }, 500);
+        }
+
+        function setScannerButtons(scanning) {
+        if (startBtn) {
+        startBtn.style.display = scanning ? 'none' : 'block';
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="bi bi-camera-video me-2"></i> Start Camera';
+        }
+
+        if (stopBtn) {
+        stopBtn.style.display = scanning ? 'block' : 'none';
+        }
+        }
+
+        function startScanner(cameraId) {
+        if (!qrScanner) {
+        qrScanner = new Html5Qrcode('qr-reader');
+        }
+
+        activeCameraId = cameraId;
+
+        qrScanner.start(
+        cameraId,
+        getScannerConfig(),
+        onScanSuccess,
+        () => { }
+        ).then(() => {
+        setScannerButtons(true);
+        }).catch(err => {
+        setScannerButtons(false);
+        showError('Could not start camera: ' + err);
+        });
+        }
+
+        function stopScanner() {
+        if (qrScanner) {
+        qrScanner.stop().then(() => {
+        readerEl.innerHTML = '';
+        setScannerButtons(false);
+        qrScanner = null;
+        activeCameraId = null;
+        }).catch(() => {
+        readerEl.innerHTML = '';
+        setScannerButtons(false);
+        qrScanner = null;
+        activeCameraId = null;
+        });
+        } else {
+        setScannerButtons(false);
+        }
+        }
+
+        function initCameras() {
+        hideError();
+        hideMessage();
+
+        Html5Qrcode.getCameras().then(cameras => {
+        if (!cameras || cameras.length === 0) {
+        showError('No cameras detected. Please allow camera access.');
+        setScannerButtons(false);
+        return;
+        }
+
+        const controlHost = document.getElementById('qr-camera-controls');
+        if (controlHost) {
+        if (cameras.length > 1) {
+        const options = cameras.map(c =>
+        `<option value="${c.id}">${c.label || c.id}</option>`
+        ).join('');
+
+        controlHost.innerHTML = `
+        <div class="mb-2">
+        <label class="form-label small fw-semibold mb-1">Select Camera</label>
+        <select id="qr-camera-select" class="form-select">
+        ${options}
+        </select>
+        </div>
+        `;
+
+        const select = document.getElementById('qr-camera-select');
+        if (select) {
+        select.addEventListener('change', function () {
+        stopScanner();
+        setTimeout(() => startScanner(this.value), 250);
+        });
+        }
+        } else {
+        controlHost.innerHTML = '';
+        }
+        }
+
+        const preferred = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[0];
+        startScanner(preferred.id);
+
+        }).catch(err => {
+        showError('Camera permission denied or unavailable. Please allow camera access in your browser settings.');
+        setScannerButtons(false);
+        });
+        }
+
+        if (startBtn) {
+        startBtn.addEventListener('click', function () {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Starting...';
+        initCameras();
+        });
+        }
+
+        if (stopBtn) {
+        stopBtn.addEventListener('click', function () {
+        stopScanner();
+        });
+        }
+
+        window.addEventListener('resize', function () {
+        if (qrScanner && activeCameraId) {
+        qrScanner.stop().then(() => {
+        readerEl.innerHTML = '';
+        const currentCamera = activeCameraId;
+        qrScanner = null;
+        setTimeout(() => startScanner(currentCamera), 200);
+        }).catch(() => { });
+        }
+        });
+        });
+    </script>
+}

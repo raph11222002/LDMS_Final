@@ -1,0 +1,266 @@
+@model LDMS_Final.ViewModels.ProductViewModel
+@{
+    ViewData["Title"] = "Add Product";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4">
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i> Back to Products
+        </a>
+        <h1 class="text-dark fw-bold mb-1 mt-2">Add Product</h1>
+        <p class="text-dark mb-0">Add a new product to your listings.</p>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-9">
+            <div class="card border-0 rounded-4 shadow-sm">
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post" enctype="multipart/form-data" id="productForm">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                        <div class="row g-3">
+
+                            <!-- Product Name -->
+                            <div class="col-md-6">
+                                <label asp-for="Name" class="form-label fw-semibold"></label>
+                                <input asp-for="Name" class="form-control" placeholder="e.g. Classic White Tee" />
+                                <span asp-validation-for="Name" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Category — free text -->
+                            <div class="col-md-6">
+                                <label asp-for="Category" class="form-label fw-semibold"></label>
+                                <input asp-for="Category" class="form-control"
+                                       placeholder="e.g. T-Shirt, Backpack, Shoes" />
+                                <span asp-validation-for="Category" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Brand -->
+                            <div class="col-md-6">
+                                <label asp-for="Brand" class="form-label fw-semibold"></label>
+                                <input asp-for="Brand" class="form-control" placeholder="e.g. Nike" />
+                                <span asp-validation-for="Brand" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Price -->
+                            <div class="col-md-6">
+                                <label asp-for="Price" class="form-label fw-semibold"></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input asp-for="Price" class="form-control" type="number" step="0.01" min="0.01"
+                                           placeholder="0.00" />
+                                </div>
+                                <span asp-validation-for="Price" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Weight -->
+                            <div class="col-md-6">
+                                <label asp-for="Weight" class="form-label fw-semibold"></label>
+                                <div class="input-group">
+                                    <input asp-for="Weight" class="form-control" type="number" step="0.01" min="0.01"
+                                           placeholder="0.00" />
+                                    <span class="input-group-text">kg</span>
+                                </div>
+                                <span asp-validation-for="Weight" class="text-danger small"></span>
+                                <div class="form-text">Include the box/package if any on weight.</div>
+                            </div>
+
+                            <!-- Sizes + Variants side by side -->
+                            <div class="col-12">
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            Available Sizes
+                                        </label>
+                                        <div id="sizesContainer" class="d-flex flex-wrap gap-2 mb-2">
+                                            <!-- Size tags injected here by JS -->
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <input type="text" id="sizeInput" class="form-control form-control-sm w-auto"
+                                                   placeholder="e.g. S, M, L, XL, 42" style="min-width:120px;"
+                                                   onkeydown="if(event.key==='Enter'){event.preventDefault();addSize();}" />
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSize()">
+                                                <i class="bi bi-plus-lg"></i> Add Size
+                                            </button>
+                                        </div>
+                                        <div id="hiddenSizes"></div>
+                                        <div class="form-text">Press Enter or click Add Size. Click a size tag to remove it.
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            Variants
+                                            <span class="text-dark fw-normal small">(e.g. Red, Ocean Blue, Stripe Pattern)</span>
+                                        </label>
+                                        <div id="variantsContainer" class="d-flex flex-column gap-2 mb-2">
+                                            <!-- Variant rows injected here by JS -->
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addVariant()">
+                                            <i class="bi bi-plus-lg"></i> Add Variant
+                                        </button>
+                                        <div class="form-text">Each variant can have one image (JPG, PNG, WEBP only).</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                                    <!-- Description -->
+                                    <div class="col-12">
+                                        <label asp-for="Description" class="form-label fw-semibold"></label>
+                                        <textarea asp-for="Description" class="form-control" rows="5" style="min-height:150px;"
+                                                  placeholder="Optional product description..."></textarea>
+                                        <span asp-validation-for="Description" class="text-danger small"></span>
+                                    </div>
+
+                                    <!-- Main Product Images -->
+                                    <div class="col-12">
+                                        <label asp-for="Images" class="form-label fw-semibold"></label>
+                                        <input asp-for="Images" class="form-control" type="file" multiple
+                                               accept=".jpg,.jpeg,.png,.webp" id="imageInput" onchange="previewImages(event)" />
+                                        <div class="form-text">Upload up to 5 images. Accepted formats: JPG, PNG, WEBP only.
+                                        </div>
+                                        <span asp-validation-for="Images" class="text-danger small"></span>
+                                        <div id="imagePreview" class="d-flex flex-wrap gap-2 mt-2"></div>
+                                    </div>
+
+                                </div>
+
+                                <div class="d-flex gap-2 mt-4">
+                                    <button type="submit" class="btn btn-primary px-4">
+                                        <i class="bi bi-plus-circle me-2"></i>Add Product
+                                    </button>
+                                    <a asp-action="Index" class="btn btn-outline-secondary px-4">Cancel</a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @section Scripts {
+            <partial name="_ValidationScriptsPartial" />
+            <script>
+                // ── Sizes ──────────────────────────────────────────────
+                const sizes = [];
+
+                function addSize() {
+                    const input = document.getElementById('sizeInput');
+                    const val = input.value.trim();
+                    if (!val || sizes.includes(val)) { input.value = ''; return; }
+                    sizes.push(val);
+                    renderSizes();
+                    input.value = '';
+                    input.focus();
+                }
+
+                function removeSize(size) {
+                    const i = sizes.indexOf(size);
+                    if (i > -1) sizes.splice(i, 1);
+                    renderSizes();
+                }
+
+                function renderSizes() {
+                    const container = document.getElementById('sizesContainer');
+                    const hidden = document.getElementById('hiddenSizes');
+                    container.innerHTML = '';
+                    hidden.innerHTML = '';
+                    sizes.forEach(size => {
+                        // Visible tag
+                        const tag = document.createElement('span');
+                        tag.className = 'badge bg-primary-subtle text-primary rounded-pill px-3 py-2 d-flex align-items-center gap-1';
+                        tag.style.cursor = 'pointer';
+                        tag.title = 'Click to remove';
+                        tag.innerHTML = `${size} <i class="bi bi-x-lg" style="font-size:0.65rem;"></i>`;
+                        tag.onclick = () => removeSize(size);
+                        container.appendChild(tag);
+
+                        // Hidden input for form submission
+                        const inp = document.createElement('input');
+                        inp.type = 'hidden';
+                        inp.name = 'Sizes';
+                        inp.value = size;
+                        hidden.appendChild(inp);
+                    });
+                }
+
+                // ── Variants ───────────────────────────────────────────
+                let variantCount = 0;
+
+                function addVariant() {
+                    const container = document.getElementById('variantsContainer');
+                    const index = variantCount++;
+                    const allowed = '.jpg,.jpeg,.png,.webp';
+
+                    const row = document.createElement('div');
+                    row.className = 'd-flex align-items-center gap-2 flex-wrap';
+                    row.id = `variant-${index}`;
+                    row.innerHTML = `
+                            <input type="text" name="Variants[${index}].Name" class="form-control form-control-sm"
+                                   placeholder="Variant name (e.g. Red, Ocean Blue)"
+                                   style="max-width:220px;" required />
+                            <input type="file" name="Variants[${index}].Image" class="form-control form-control-sm"
+                                   accept="${allowed}" style="max-width:240px;"
+                                   onchange="previewVariantImage(event, ${index})" />
+                            <img id="variantPreview-${index}"
+                                 style="display:none;width:48px;height:48px;object-fit:cover;border-radius:8px;border:2px solid #dee2e6;" />
+                            <button type="button" class="btn btn-sm btn-outline-danger rounded-3"
+                                    onclick="removeVariant(${index})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        `;
+                    container.appendChild(row);
+                }
+
+                function removeVariant(index) {
+                    document.getElementById(`variant-${index}`)?.remove();
+                }
+
+                function previewVariantImage(event, index) {
+                    const file = event.target.files[0];
+                    const preview = document.getElementById(`variantPreview-${index}`);
+                    if (!file || !preview) return;
+
+                    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowed.includes(file.type)) {
+                        event.target.value = '';
+                        alert('Only JPG, PNG, and WEBP images are accepted.');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        preview.src = e.target.result;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                // ── Main Images ────────────────────────────────────────
+                function previewImages(event) {
+                    const preview = document.getElementById('imagePreview');
+                    preview.innerHTML = '';
+
+                    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+                    const files = Array.from(event.target.files).filter(f => allowed.includes(f.type)).slice(0, 5);
+
+                    if (files.length < event.target.files.length) {
+                        alert('Some files were skipped. Only JPG, PNG, and WEBP are accepted.');
+                    }
+
+                    files.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = e => {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.style = 'width:80px;height:80px;object-fit:cover;border-radius:8px;border:2px solid #dee2e6;';
+                            preview.appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                }
+            </script>
+        }

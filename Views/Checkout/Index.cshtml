@@ -1,0 +1,445 @@
+@model LDMS_Final.ViewModels.CheckoutViewModel
+@{
+    ViewData["Title"] = "Checkout";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+
+    <a asp-controller="Cart" asp-action="Index" class="text-decoration-none text-dark">
+        <i class="bi bi-arrow-left me-1"></i> Back to Cart
+    </a>
+
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1" style="color:#111;">Checkout</h1>
+        <p class="text-dark mb-0">Review your order and confirm.</p>
+    </div>
+
+    @if (TempData["StockError"] != null)
+    {
+        var errors = TempData["StockError"]!.ToString()!.Split('|');
+        <div class="alert alert-danger rounded-3 mb-4">
+            <strong><i class="bi bi-exclamation-triangle me-2"></i>Some items are no longer available:</strong>
+            <ul class="mb-0 mt-1">
+                @foreach (var err in errors)
+                {
+                    <li>@err</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <form asp-action="ConfirmOrder" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-4">
+
+            <!-- Delivery Info -->
+            <div class="col-12 col-lg-7">
+                <div class="card border-0 rounded-4 shadow-lg mb-4">
+                    <div class="card-body p-4">
+                        <h6 class="fw-semibold mb-3">Delivery Information</h6>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label asp-for="DeliveryFullName" class="form-label fw-semibold"></label>
+                                <input asp-for="DeliveryFullName" class="form-control" readonly />
+                                <span asp-validation-for="DeliveryFullName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label asp-for="DeliveryContactNumber" class="form-label fw-semibold"></label>
+                                <input asp-for="DeliveryContactNumber" class="form-control" type="tel"
+                                       inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9+\-\s]/g, '')" />
+                                <span asp-validation-for="DeliveryContactNumber" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="DeliveryAddress" class="form-label fw-semibold"></label>
+                                <input asp-for="DeliveryAddress" class="form-control" id="addressInput"
+                                       placeholder="Street, Barangay, City" />
+                                <span asp-validation-for="DeliveryAddress" class="text-danger small"></span>
+                            </div>
+                            <div class="col-12">
+                                <label asp-for="DeliveryNote" class="form-label fw-semibold">
+                                    Additional Instructions <span class="text-dark fw-normal">(optional)</span>
+                                </label>
+                                <input asp-for="DeliveryNote" class="form-control"
+                                       placeholder="e.g. Blue gate, near the corner store" />
+                            </div>
+                        </div>
+
+                        <!-- Hidden lat/lng and shipping fee fields -->
+                        <input type="hidden" asp-for="DeliveryLatitude" id="latInput" />
+                        <input type="hidden" asp-for="DeliveryLongitude" id="lngInput" />
+                        <input type="hidden" asp-for="ShippingFee" id="shippingFeeInput" value="@Model.ShippingFee" />
+
+                        <!-- Mapbox Pin Drop -->
+                        <div class="mt-3">
+                            <label class="form-label fw-semibold">
+                                Pin Drop Location
+                                <span class="text-danger fw-semibold small">(Recommended: Use this Pin Drop Location to
+                                    ensure accurate delivery and shipping fee.)</span>
+                                </label>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="trackLocationBtn"
+                                            onclick="requestLocationPin()">
+                                        Use my current location
+                                    </button>
+                                    <span class="small text-dark">Allow browser location access to auto-place your delivery
+                                        pin.</span>
+                                    </div>
+                                    <div id="map" style="height:340px;border-radius:12px;border:1.5px solid #dee2e6;"></div>
+                                    <div class="form-text">Click on the map to drop a pin on your exact location, or use your
+                                        device location above.</div>
+                                        <div id="pinStatus" class="text-success small mt-1" style="display:none;">
+                                            <i class="bi bi-geo-alt-fill me-1"></i>Pin dropped successfully.
+                                        </div>
+                                        <div id="locationError" class="text-danger small mt-1" style="display:none;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Payment Method -->
+                            <div class="card border-0 rounded-4 shadow-lg">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-semibold mb-3">Payment Method</h6>
+                                    <div class="d-flex flex-column gap-2">
+                                        @foreach (var method in new[] { "COD", "GCash", "Maya" })
+                                        {
+                                            <label class="d-flex align-items-center gap-3 p-3 border rounded-3" style="cursor:pointer;"
+                                                   id="payLabel-@method">
+                                                <input type="radio" asp-for="PaymentMethod" value="@method" class="form-check-input m-0"
+                                                       onchange="highlightPayment('@method')" />
+                                                <span class="fw-semibold">
+                                                    @if (method == "COD")
+                                                    {
+                                                        <i class="bi bi-cash-coin me-2 text-success"></i>
+                                                    }
+                                                    else if (method == "GCash")
+                                                    {
+                                                        <i class="bi bi-phone me-2 text-primary"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="bi bi-wallet2 me-2 text-info"></i>
+                                                    }
+                                                    @method
+                                                    @if (method != "COD")
+                                                    {
+                                                        <span class="badge bg-secondary-subtle text-secondary ms-2 fw-normal small">For
+                                                            Testing</span>
+                                                        }
+                                                    </span>
+                                                </label>
+                                            }
+                                        </div>
+                                        <span asp-validation-for="PaymentMethod" class="text-danger small"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Order Summary -->
+                            <div class="col-12 col-lg-5">
+                                <div class="card border-0 rounded-4 shadow-lg position-sticky" style="top:20px;">
+                                    <div class="card-body p-4">
+                                        <h6 class="fw-semibold mb-3">Order Summary</h6>
+
+                                        @foreach (var item in Model.Items)
+                                        {
+                                            <div class="d-flex gap-2 mb-3 align-items-center">
+                                                @if (!string.IsNullOrEmpty(item.ImagePath))
+                                                {
+                                                    <img src="@item.ImagePath"
+                                                         style="width:52px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;" />
+                                                }
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-semibold small" style="color:#111;">@item.ProductName</div>
+                                                    <div class="text-dark small">
+                                                        @item.VariantName @(item.SelectedSize != null ? $"/ {item.SelectedSize}" : "")
+                                                    </div>
+                                                    <div class="small">x @item.Quantity &nbsp; ₱@item.UnitPrice.ToString("N2") each</div>
+                                                </div>
+                                                <div class="fw-bold small flex-shrink-0">₱@item.Subtotal.ToString("N2")</div>
+                                            </div>
+                                        }
+
+                                        <hr />
+                                        <div class="d-flex justify-content-between mb-2">
+                                            <span>Shipping Fee</span>
+                                            <span id="shippingFeeText">₱@Model.ShippingFee.ToString("N2")</span>
+                                        </div>
+                                        <div class="form-text small text-muted mb-2">
+                                            Estimated via Davao City warehouse: motorcycle for in-city (within 20 km of any hub),
+                                            multi-van route for out-of-city deliveries.
+                                        </div>
+                                        <div class="d-flex justify-content-between fw-bold fs-6 mb-4">
+                                            <span>Total</span>
+                                            <span id="checkoutGrandTotal">₱@Model.GrandTotal.ToString("N2")</span>
+                                        </div>
+
+                                        <button type="submit" class="btn btn-dark w-100 py-3 rounded-pill fw-semibold">
+                                            <i class="bi bi-bag-check me-2"></i>Confirm Order
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+
+                @section Scripts {
+                    <partial name="_ValidationScriptsPartial" />
+                    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+                    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+                    <script>
+                        // ── Mapbox Setup ───────────────────────────────────────
+        mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+
+                        const map = new mapboxgl.Map({
+                            container: 'map',
+                            style: 'mapbox://styles/mapbox/streets-v12',
+                            center: [125.60912551133661, 7.065421017945113], // Davao City default
+                            zoom: 10
+                        });
+
+                        map.addControl(new mapboxgl.NavigationControl());
+
+                        let marker = null;
+
+                        // Items passed from server (weight + quantity only, no sensitive data)
+                        const checkoutItems = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                                    Model.Items.Select(i => new { i.Weight, i.Quantity }
+                        )));
+
+                        // ── Hub coordinates (must match CheckoutController) ────
+                        const HUBS = {
+                            davao: { lat: 7.064764940987943, lng: 125.60869053843403 },
+                            surigao: { lat: 9.790260868323017, lng: 125.49312423896352 },
+                            tacloban: { lat: 11.222528827106181, lng: 124.99200750511456 },
+                            pasay: { lat: 14.537682187625546, lng: 121.00077350135048 }
+                        };
+
+                        const IN_CITY_HUB_RADIUS_KM = 20.0;
+
+                        // ── Haversine distance ─────────────────────────────────
+                        function getDistanceKm(lat1, lon1, lat2, lon2) {
+                        const toRad = d => d * Math.PI / 180;
+                        const dLat = toRad(lat2 - lat1);
+                        const dLon = toRad(lon2 - lon1);
+                        const a = Math.sin(dLat / 2) ** 2
+                        + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+                        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        }
+
+                        // ── Find nearest hub and its distance to the buyer ─────
+                        function getNearestHub(lat, lng) {
+                        if (lat == null || lng == null) return { hub: 'pasay', distance: Infinity };
+
+                        let nearest = null;
+                        let nearestDist = Infinity;
+
+                        for (const [name, coords] of Object.entries(HUBS)) {
+                        const dist = getDistanceKm(coords.lat, coords.lng, lat, lng);
+                        if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearest = name;
+                        }
+                        }
+                        return { hub: nearest, distance: nearestDist };
+                        }
+
+                        // ── Total weight of cart items ─────────────────────────
+                        function getTotalWeight() {
+                        return checkoutItems.reduce((sum, item) => sum + (item.Weight || 0) * item.Quantity, 0);
+                        }
+
+                        // ── In-city motorcycle fee ─────────────────────────────
+                        // Base fee = 45, Extra weight = (weight – 1 min) × 10
+                        function calcInCityMotorcycleFee(weight) {
+                        const effectiveWeight = Math.max(weight, 1);
+                        const extraWeight = effectiveWeight - 1;
+                        return Math.round((45 + extraWeight * 10) * 100) / 100;
+                        }
+
+                        // ── Last-mile motorcycle fee ───────────────────────────
+                        // ≤ 20 km from hub  → in-city formula
+                        // > 20 km from hub  → 10/kg + 25 per 15 km block
+                        function calcLastMileFee(hubName, weight, lat, lng) {
+                        if (lat == null || lng == null) return calcInCityMotorcycleFee(weight);
+
+                        const hubCoords = HUBS[hubName];
+                        const hubDist = getDistanceKm(hubCoords.lat, hubCoords.lng, lat, lng);
+
+                        if (hubDist > IN_CITY_HUB_RADIUS_KM) {
+                        const blocks = Math.ceil(hubDist / 15);
+                        return Math.round((weight * 10 + 25 * blocks) * 100) / 100;
+                        }
+
+                        return calcInCityMotorcycleFee(weight);
+                        }
+
+                        // ── Main shipping fee calculation ──────────────────────
+                        function calculateShippingFee(lat, lng) {
+                        const weight = getTotalWeight();
+                        const deliveryAddr = (document.getElementById('addressInput')?.value || '').toLowerCase();
+                        const { hub: nearestHub, distance: nearestDist } = getNearestHub(lat, lng);
+
+                        // Determine if buyer is in-city (within 20 km of nearest hub)
+                        let isInCity = false;
+                        if (lat != null && lng != null) {
+                        isInCity = nearestDist <= IN_CITY_HUB_RADIUS_KM;
+                        } else {
+                        // Address-text fallback
+                        isInCity = deliveryAddr.includes('davao')
+                        || deliveryAddr.includes('surigao')
+                        || deliveryAddr.includes('tacloban')
+                        || deliveryAddr.includes('pasay')
+                        || deliveryAddr.includes('manila');
+                        }
+
+                        // ── Out-of-city: 4-van chain ───────────────────────
+                        // Van 1 – Warehouse → Davao Sorting Center: base 20 + 7/kg (always)
+                        const van1Cost = 20 + weight * 7;
+
+                        // Van 2 – Davao → Surigao: 50/kg  (skip if nearest hub is Davao)
+                        const van2Cost = nearestHub === 'davao' ? 0 : weight * 50;
+
+                        // Van 3 – Surigao → Tacloban: 50/kg  (only for Tacloban or Pasay destinations)
+                        const van3Cost = (nearestHub === 'tacloban' || nearestHub === 'pasay')
+                        ? weight * 50
+                        : 0;
+
+                        // Van 4 – Tacloban → Pasay: 65/kg  (only for Pasay destination)
+                        const van4Cost = nearestHub === 'pasay' ? weight * 65 : 0;
+
+                        // Last-mile motorcycle from nearest hub to buyer
+                        const lastMileCost = calcLastMileFee(nearestHub, weight, lat, lng);
+
+                        const total = van1Cost + van2Cost + van3Cost + van4Cost + lastMileCost;
+                        return Math.round(total * 100) / 100;
+                        }
+
+                        // ── Update DOM with new shipping fee ──────────────────
+                        function updateShippingSummary(lat, lng) {
+                        const shippingFee = calculateShippingFee(lat, lng);
+                        document.getElementById('shippingFeeInput').value = shippingFee.toFixed(2);
+                        document.getElementById('shippingFeeText').textContent = `₱${shippingFee.toFixed(2)}`;
+                        const subtotal = @Model.TotalAmount;
+                        document.getElementById('checkoutGrandTotal').textContent = `₱${(subtotal + shippingFee).toFixed(2)}`;
+                        }
+
+                        // ── Place / move the map pin ───────────────────────────
+                        function setMapPin(lng, lat, showStatus = true) {
+                        if (marker) marker.remove();
+
+                        marker = new mapboxgl.Marker({ color: '#e11d48' })
+                        .setLngLat([lng, lat])
+                        .addTo(map);
+
+                        map.flyTo({ center: [lng, lat], zoom: 15 });
+
+                        document.getElementById('latInput').value = lat.toFixed(7);
+                        document.getElementById('lngInput').value = lng.toFixed(7);
+                        updateShippingSummary(lat, lng);
+
+                        if (showStatus) {
+                        document.getElementById('pinStatus').style.display = 'block';
+                        }
+                        }
+
+                        // Click on map to drop pin
+                        map.on('click', function (e) {
+                        const { lng, lat } = e.lngLat;
+                        setMapPin(lng, lat);
+                        });
+
+                        // ── Use device location ────────────────────────────────
+                        async function requestLocationPin() {
+                        const errorEl = document.getElementById('locationError');
+                        const statusEl = document.getElementById('pinStatus');
+                        errorEl.style.display = 'none';
+                        statusEl.style.display = 'none';
+
+                        if (!navigator.geolocation) {
+                        errorEl.textContent = 'Geolocation is not supported by your browser.';
+                        errorEl.style.display = 'block';
+                        return;
+                        }
+
+                        navigator.geolocation.getCurrentPosition(async function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        setMapPin(lng, lat);
+                        statusEl.textContent = 'Location detected and pin placed automatically.';
+                        statusEl.style.display = 'block';
+                        await reverseGeocodeAddress(lng, lat);
+                        }, function (err) {
+                        errorEl.textContent = err.message || 'Unable to get your location. Please allow location access.';
+                        errorEl.style.display = 'block';
+                        }, {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 0
+                        });
+                        }
+
+                        // ── Reverse geocode to fill address input ──────────────
+                        async function reverseGeocodeAddress(lng, lat) {
+                        try {
+                        const res = await fetch(
+                        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?country=PH&access_token=${mapboxgl.accessToken}`
+                        );
+                        const data = await res.json();
+                        if (data.features && data.features.length > 0) {
+                        const place = data.features[0].place_name;
+                        const addressInput = document.getElementById('addressInput');
+                        if (addressInput && !addressInput.value.trim()) {
+                        addressInput.value = place;
+                        }
+                        }
+                        } catch (ex) {
+                        console.warn('Reverse geocode failed', ex);
+                        }
+                        }
+
+                        // ── Geocode typed address → move map ───────────────────
+                        document.getElementById('addressInput').addEventListener('change', async function () {
+                        const address = this.value.trim();
+                        if (!address) return;
+
+                        const res = await fetch(
+                        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?country=PH&access_token=${mapboxgl.accessToken}`
+                        );
+                        const data = await res.json();
+                        if (data.features && data.features.length > 0) {
+                        const [lng, lat] = data.features[0].center;
+                        map.flyTo({ center: [lng, lat], zoom: 15 });
+                        document.getElementById('latInput').value = lat.toFixed(7);
+                        document.getElementById('lngInput').value = lng.toFixed(7);
+                        updateShippingSummary(lat, lng);
+                        } else {
+                        // No geocode result – recalculate based on address text fallback
+                        updateShippingSummary(null, null);
+                        }
+                        });
+
+                        // ── On page load: init shipping fee display ────────────
+                        document.addEventListener('DOMContentLoaded', function () {
+                        const lat = parseFloat(document.getElementById('latInput').value);
+                        const lng = parseFloat(document.getElementById('lngInput').value);
+                        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+                        updateShippingSummary(lat, lng);
+                        } else {
+                        updateShippingSummary(null, null);
+                        }
+                        });
+
+                        // ── Payment method highlight ───────────────────────────
+                        function highlightPayment(method) {
+                        ['COD', 'GCash', 'Maya'].forEach(m => {
+                        const label = document.getElementById(`payLabel-${m}`);
+                        if (label) label.style.borderColor = m === method ? '#111' : '#dee2e6';
+                        });
+                        }
+                    </script>
+                }

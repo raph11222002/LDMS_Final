@@ -1,0 +1,71 @@
+@model LDMS_Final.ViewModels.BuyerFavoritesViewModel
+@{
+    ViewData["Title"] = "My Favorites";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1" style="color:#111;">My Favorites</h1>
+        <p class="text-dark mb-0">Products you've saved.</p>
+    </div>
+
+    @if (!Model.Favorites.Any())
+    {
+        <div class="text-center py-5 text-dark">
+            <i class="bi bi-heart display-4 d-block mb-3 opacity-50"></i>
+            <p class="mb-1">No favorites yet.</p>
+            <a asp-action="Index" class="btn btn-dark mt-2 rounded-pill px-4">Browse Products</a>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+            @foreach (var product in Model.Favorites)
+            {
+                <div class="col">
+                    <div class="product-card" onclick="window.location='@Url.Action("ProductDetail", new { id = product.Id })'">
+                        <div class="product-card-img">
+                            @if (!string.IsNullOrEmpty(product.ImagePath1))
+                            {
+                                <img src="@product.ImagePath1" alt="@product.Name" />
+                            }
+                            else
+                            {
+                                <div class="w-100 d-flex align-items-center justify-content-center"
+                                     style="background:#f5f5f5;aspect-ratio:3/4;">
+                                    <i class="bi bi-image text-dark fs-1"></i>
+                                </div>
+                            }
+
+                            @if (product.StockStatus == "OutOfStock")
+                            {
+                                <span class="stock-badge-outofstock">Out of Stock</span>
+                            }
+                            else if (product.StockStatus == "LowStock")
+                            {
+                                <span class="stock-badge-lowstock">Low Stock</span>
+                            }
+
+                            <form asp-action="ToggleFavorite" method="post" class="d-inline" onclick="event.stopPropagation()">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="productId" value="@product.Id" />
+                                <input type="hidden" name="returnUrl" value="@Url.Action("Favorites")" />
+                                <button type="submit" class="product-card-fav">
+                                    <i class="bi bi-heart-fill"></i>
+                                </button>
+                            </form>
+                        </div>
+
+                        <div class="product-card-body">
+                            <div class="product-card-brand">@product.Brand</div>
+                            <div class="product-card-name">@product.Name</div>
+                            <div class="product-card-price">₱@product.Price.ToString("N2")</div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

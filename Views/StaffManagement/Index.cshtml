@@ -1,0 +1,110 @@
+@model IEnumerable<LDMS_Final.ViewModels.StaffListItemViewModel>
+@{
+    ViewData["Title"] = "Staff Management";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">Staff Management</h1>
+            <p class="mb-0 text-dark">Manage staff users.</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary d-flex align-items-center gap-2">
+            <i class="bi bi-plus-lg"></i> Add Staff
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4" role="alert">
+            <i class="bi bi-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            @if (!Model.Any())
+            {
+                <div class="text-center py-5 text-dark">
+                    <i class="bi bi-people display-4 d-block mb-3 opacity-50"></i>
+                    <p class="mb-0">No staff accounts yet. Click <strong>Add Staff</strong> to get started.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Full Name</th>
+                                <th>Username</th>
+                                <th>Contact</th>
+                                <th>Role</th>
+                                <th>Assigned Hub</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th class="text-end pe-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var staff in Model)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-semibold">@staff.FullName</td>
+                                    <td >@staff.UserName</td>
+                                    <td>@staff.ContactNumber</td>
+                                    <td>
+                                        <span class="role-pill role-pill--@staff.Role.ToLower().Replace(" ", "")">
+                                            @staff.Role
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(staff.AssignedHub))
+                                        {
+                                            @staff.AssignedHub
+                                        }
+                                        else
+                                        {
+                                            <span class="text-dark">Warehouse (Origin)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (staff.IsActive)
+                                        {
+                                            <span class="badge bg-success-subtle text-success rounded-pill px-3">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger rounded-pill px-3">Inactive</span>
+                                        }
+                                    </td>
+                                    <td class="small">@staff.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            <a asp-action="Edit" asp-route-id="@staff.Id"
+                                               class="btn btn-sm btn-outline-primary rounded-3">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <form asp-action="ToggleStatus" asp-route-id="@staff.Id" method="post"
+                                                  class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit"
+                                                        class="btn btn-sm @(staff.IsActive ? "btn-outline-warning" : "btn-outline-success") rounded-3"
+                                                        title="@(staff.IsActive ? "Deactivate" : "Activate")">
+                                                    <i class="bi @(staff.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,133 @@
+@model LDMS_Final.Models.Order
+@{
+    ViewData["Title"] = $"Warehouse Order {Model.OrderNumber}";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-0 px-lg-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a asp-action="Index" class="text-decoration-none text-dark">
+                <i class="bi bi-arrow-left me-1"></i> Back to Orders
+            </a>
+            <h1 class="text-dark fw-bold mb-1">Order Details</h1>
+            <p class="text-dark mb-0">Update status or review order information.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 align-items-stretch mx-0">
+        <div class="col-12 col-lg-7 d-flex flex-column gap-3 px-0 px-lg-2">
+            <div class="card border-0 rounded-4 rounded-lg-4 shadow-none shadow-lg-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h4 class="fw-bold mb-1">@Model.OrderNumber</h4>
+                            <div class="text-dark small">Placed on @Model.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</div>
+                        </div>
+                        <span
+                        class="badge rounded-pill px-3 py-2 fs-6 @(Model.Status == "Pending" ? "bg-warning text-dark" : Model.Status == "Order approved - Preparing to ship" ? "bg-success" : "bg-secondary")">@Model.Status</span>
+                    </div>
+
+                    <h6 class="fw-semibold mb-3">Buyer</h6>
+                    <div class="mb-2"><span class="text-dark small">Name:</span> @Model.DeliveryFullName</div>
+                    <div class="mb-2"><span class="text-dark small">Contact:</span> @Model.DeliveryContactNumber</div>
+                    <div class="mb-2"><span class="text-dark small">Address:</span> @Model.DeliveryAddress</div>
+                    <div class="mb-2"><span class="text-dark small">Payment:</span> @Model.PaymentMethod</div>
+                    @if (!string.IsNullOrEmpty(Model.DeliveryNote))
+                    {
+                        <div class="mb-2"><span class="text-dark small">Note:</span> @Model.DeliveryNote</div>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-0 rounded-4 rounded-lg-4 shadow-none shadow-lg-sm">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Items</h6>
+                    @foreach (var item in Model.Items)
+                    {
+                        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+                            <div>
+                                <div class="fw-semibold">@item.ProductName</div>
+                                <div class="text-dark small">
+                                    @if (!string.IsNullOrEmpty(item.VariantName))
+                                    {
+                                        <span>@item.VariantName</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(item.SelectedSize))
+                                    {
+                                        <span class="ms-1">/ @item.SelectedSize</span>
+                                    }
+                                </div>
+                                <div class="text-dark small">₱@item.UnitPrice.ToString("N2") × @item.Quantity</div>
+                            </div>
+                            <div class="fw-semibold">₱@item.Subtotal.ToString("N2")</div>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>Order total</span>
+                        <span>₱@Model.TotalAmount.ToString("N2")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5 d-flex flex-column gap-3 px-0 px-lg-2">
+            <div class="card border-0 rounded-4 rounded-lg-4 shadow-none shadow-lg-sm">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Update Status</h6>
+                    @if (Model.Status == LDMS_Final.Models.OrderStatus.Pending)
+                    {
+                        <form asp-action="UpdateStatus" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="orderId" value="@Model.Id" />
+                            <input type="hidden" name="status" value="@LDMS_Final.Models.OrderStatus.Approved" />
+                            <input type="hidden" name="note" value="Warehouse confirmed and preparing your package." />
+                            <button type="submit" class="btn btn-success w-100 rounded-pill">
+                                <i class="bi bi-check-circle me-2"></i>Approve Order
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="text-dark">This order has already been approved. Logistic Staff will process it shortly.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-0 rounded-4 rounded-lg-4 shadow-none shadow-lg-sm">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Order Status</h6>
+                    @if (Model.StatusLogs.Any())
+                    {
+                        <div class="timeline">
+                            @foreach (var log in Model.StatusLogs.OrderBy(l => l.CreatedAt))
+                            {
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <div class="fw-semibold">@log.Status</div>
+                                            @if (!string.IsNullOrEmpty(log.UpdatedByName))
+                                            {
+                                                <div class="text-dark small">By @log.UpdatedByName</div>
+                                            }
+                                        </div>
+                                        <div class="text-dark small">@log.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(log.Note))
+                                    {
+                                        <div class="text-dark small mt-1">@log.Note</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-dark small">No status updates yet.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

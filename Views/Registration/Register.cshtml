@@ -1,0 +1,160 @@
+@model LDMS_Final.ViewModels.RegisterViewModel
+@{
+    ViewData["Title"] = "Sign Up";
+    Layout = "_SignUpLayout";
+}
+
+<style>
+    /* Fix browser autofill blue highlight on all inputs */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+        box-shadow: 0 0 0px 1000px #fff inset !important;
+        -webkit-text-fill-color: #212529 !important;
+        transition: background-color 9999s ease-in-out 0s;
+    }
+</style>
+
+<div class="container min-vh-100 d-flex align-items-center justify-content-center py-5">
+    <div class="row w-100 justify-content-center">
+        <div class="col-12 col-lg-6 col-md-8">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <h2 class="fw-bold mb-1 text-center">Create Account</h2>
+                    <p class="text-dark text-center mb-4 small">Fill in your details to get started</p>
+
+                    <form asp-action="Register" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                        <div class="row g-3">
+
+                            <!-- Full Name -->
+                            <div class="col-md-6">
+                                <label asp-for="FullName" class="form-label fw-semibold"></label>
+                                <input asp-for="FullName" class="form-control" placeholder="Juan dela Cruz" />
+                                <span asp-validation-for="FullName" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Contact Number - tel type blocks letters, pattern enforces digits only -->
+                            <div class="col-md-6">
+                                <label asp-for="ContactNumber" class="form-label fw-semibold"></label>
+
+                                <input asp-for="ContactNumber" class="form-control" type="tel" inputmode="numeric"
+                                       maxlength="11" minlength="11" pattern="^09\d{9}$" placeholder="09XXXXXXXXX" oninput="
+                                this.value = this.value
+                                .replace(/[^0-9]/g, '')
+                                .slice(0,11);
+                                " />
+
+                                <span asp-validation-for="ContactNumber" class="text-danger small"></span>
+
+                                <div class="form-text">
+                                    Enter a valid Philippine mobile number (e.g. 09123456789).
+                                </div>
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6">
+                                <label asp-for="Email" class="form-label fw-semibold"></label>
+                                <input asp-for="Email" class="form-control" type="email" placeholder="you@email.com"
+                                       autocomplete="email" />
+                                <span asp-validation-for="Email" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Gender -->
+                            <div class="col-md-6">
+                                <label asp-for="Gender" class="form-label fw-semibold"></label>
+                                <select asp-for="Gender" class="form-select">
+                                    <option value="">Select gender</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                    <option>Prefer not to say</option>
+                                </select>
+                                <span asp-validation-for="Gender" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Address Line 1 -->
+                            <div class="col-12">
+                                <label asp-for="AddressLine1" class="form-label fw-semibold">Address Line 1</label>
+                                <input asp-for="AddressLine1" class="form-control"
+                                       placeholder="House No., Street, Barangay" />
+                                <span asp-validation-for="AddressLine1" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Address Line 2 -->
+                            <div class="col-md-6">
+                                <label asp-for="AddressLine2" class="form-label fw-semibold">
+                                    Address Line 2 <span class="text-dark fw-normal">(optional)</span>
+                                </label>
+                                <input asp-for="AddressLine2" class="form-control" placeholder="Apt, floor, landmark" />
+                                <span asp-validation-for="AddressLine2" class="text-danger small"></span>
+                            </div>
+
+                            <!-- City -->
+                            <div class="col-md-6">
+                                <label asp-for="City" class="form-label fw-semibold"></label>
+                                <input asp-for="City" class="form-control" placeholder="City / Municipality" />
+                                <span asp-validation-for="City" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="col-md-6">
+                                <label asp-for="Password" class="form-label fw-semibold"></label>
+                                <div class="position-relative">
+                                    <input asp-for="Password" id="Password" class="form-control pe-5"
+                                           autocomplete="new-password" />
+                                    <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+                                       id="togglePasswordIcon" style="cursor:pointer;" onclick="togglePassword()"></i>
+                                </div>
+                                <span asp-validation-for="Password" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Confirm Password -->
+                            <div class="col-md-6">
+                                <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
+                                <div class="position-relative">
+                                    <input asp-for="ConfirmPassword" id="ConfirmPassword" class="form-control pe-5"
+                                           autocomplete="new-password" />
+                                    <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+                                       id="toggleConfirmIcon" style="cursor:pointer;" onclick="toggleConfirm()"></i>
+                                </div>
+                                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                            </div>
+
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 mt-4">Create Account</button>
+                        <a class="btn btn-outline-secondary w-100 mt-2" asp-controller="Account" asp-action="Login">
+                            Already have an account? Login
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePassword() {
+            const input = document.getElementById('Password');
+            const icon = document.getElementById('togglePasswordIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+
+        function toggleConfirm() {
+            const input = document.getElementById('ConfirmPassword');
+            const icon = document.getElementById('toggleConfirmIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+    </script>
+}

@@ -1,0 +1,172 @@
+@model LDMS_Final.ViewModels.CreateUserViewModel
+@{
+    ViewData["Title"] = "Add Staff";
+    Layout = "_Layout";
+}
+
+<style>
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0px 1000px #fff inset !important;
+        -webkit-text-fill-color: #212529 !important;
+    }
+</style>
+
+<div class="container-fluid py-4 px-3 px-md-4">
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i> Back to Staff List
+        </a>
+        <h1 class="fw-bold mb-1 text-dark">Create Staff Account</h1>
+    </div>
+
+    <div class="row g-0">
+        <div class="col-12 col-xl-10 col-xxl-8">
+            <div class="card border-0 rounded-4 shadow-sm w-100">
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger rounded-3 mb-3"></div>
+
+                        <div class="row">
+                            <!-- Full Name -->
+                            <div class="col-12 col-md-6 mb-3">
+                                <label asp-for="FullName" class="form-label fw-semibold"></label>
+                                <input asp-for="FullName" class="form-control" placeholder="Juan dela Cruz" />
+                                <span asp-validation-for="FullName" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Username -->
+                            <div class="col-12 col-md-6 mb-3">
+                                <label asp-for="UserName" class="form-label fw-semibold"></label>
+                                <input asp-for="UserName" class="form-control" placeholder="l_staff1_davao" />
+                                <span asp-validation-for="UserName" class="text-danger small"></span>
+                                <div class="form-text">
+                                    Email will be set as <code>username@ldms.com</code>
+                                </div>
+                            </div>
+
+                            <!-- Gender -->
+                            <div class="col-12 col-md-6 mb-3">
+                                <label asp-for="Gender" class="form-label fw-semibold"></label>
+                                <select asp-for="Gender" class="form-select">
+                                    <option value="">— Select gender —</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                </select>
+                                <span asp-validation-for="Gender" class="text-danger small"></span>
+                            </div>
+
+                            <!-- Role -->
+                            <div class="col-12 col-md-6 mb-3">
+                                <label asp-for="SelectedRole" class="form-label fw-semibold">Role</label>
+                                <select asp-for="SelectedRole" class="form-select" id="SelectedRole"
+                                        onchange="toggleHubField()">
+                                    <option value="">— Select a role —</option>
+                                    <option value="LogisticStaff">Logistic Staff</option>
+                                    <option value="WarehouseStaff">Warehouse Staff</option>
+                                </select>
+                                <span asp-validation-for="SelectedRole" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12 col-md-6 mb-3">
+                                <label asp-for="ContactNumber" class="form-label fw-semibold"></label>
+                                <input asp-for="ContactNumber" class="form-control" type="tel" inputmode="numeric"
+                                       placeholder="09XX XXX XXXX"
+                                       oninput="this.value = this.value.replace(/[^0-9+\-\s]/g, '')" />
+                                <span asp-validation-for="ContactNumber" class="text-danger small"></span>
+                            </div>
+
+                            <div class="col-12 col-md-6 mb-3" id="hubFieldWrap">
+                                <label asp-for="SelectedHub" class="form-label fw-semibold">
+                                    Assigned Hub
+                                </label>
+
+                                <select asp-for="SelectedHub" class="form-select" id="SelectedHub">
+
+                                    <option value="">Warehouse Based (Origin)</option>
+
+                                    @foreach (var hub in DeliveryHubInfo.HubSequence)
+                                    {
+                                        <option value="@((int)hub)">
+                                            @DeliveryHubInfo.Hubs[hub].Label
+                                        </option>
+                                    }
+                                </select>
+
+                                <span asp-validation-for="SelectedHub" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Password" class="form-label fw-semibold"></label>
+                            <div class="position-relative">
+                                <input asp-for="Password" id="Password" class="form-control pe-5"
+                                       autocomplete="new-password" />
+                                <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+                                   id="togglePasswordIcon" style="cursor:pointer;" onclick="togglePassword()"></i>
+                            </div>
+                            <span asp-validation-for="Password" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
+                            <div class="position-relative">
+                                <input asp-for="ConfirmPassword" id="ConfirmPassword" class="form-control pe-5"
+                                       autocomplete="new-password" />
+                                <i class="bi bi-eye position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+                                   id="toggleConfirmIcon" style="cursor:pointer;" onclick="toggleConfirm()"></i>
+                            </div>
+                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-person-plus me-2"></i>Create Account
+                            </button>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function togglePassword() {
+            const input = document.getElementById('Password');
+            const icon = document.getElementById('togglePasswordIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+        function toggleConfirm() {
+            const input = document.getElementById('ConfirmPassword');
+            const icon = document.getElementById('toggleConfirmIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.classList.toggle('bi-eye', !isPassword);
+            icon.classList.toggle('bi-eye-slash', isPassword);
+        }
+
+        function toggleHubField() {
+            const role = document.getElementById('SelectedRole').value;
+            const hubWrap = document.getElementById('hubFieldWrap');
+            const hubSelect = document.getElementById('SelectedHub');
+
+            const isLogistic = role === 'LogisticStaff';
+            hubWrap.style.opacity = isLogistic ? '1' : '0.6';
+            hubSelect.style.cursor = isLogistic ? 'default' : 'not-allowed';
+            hubSelect.disabled = !isLogistic;
+
+            if (!isLogistic) hubSelect.value = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', toggleHubField);
+    </script>
+}

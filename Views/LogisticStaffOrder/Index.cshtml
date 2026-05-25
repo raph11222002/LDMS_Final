@@ -1,0 +1,140 @@
+@model LDMS_Final.ViewModels.LogisticOrderListViewModel
+@using LDMS_Final.Models
+@{
+    ViewData["Title"] = "Orders";
+    Layout = "_Layout";
+    bool isMain = (bool)(ViewBag.IsMainLStaff ?? false);
+}
+
+<div class="container-fluid py-4 px-4">
+
+    <div class="mb-4">
+        <h1 class="text-dark fw-bold mb-0">Orders</h1>
+        <p class="text-dark mt-1 mb-0">
+            @(isMain ? "Assign and track delivery routes for approved orders."
+                     : "Orders passing through your assigned sorting hub.")
+        </p>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3">
+            <i class="bi bi-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Status filter tabs -->
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+
+        <a asp-action="Index" class="btn rounded-pill px-4 @(string.IsNullOrEmpty(Model.CurrentStatus)
+                       ? "btn-dark text-white"
+                       : "btn-outline-dark")">
+            All
+        </a>
+
+        @if (isMain)
+        {
+            <a asp-action="Index" asp-route-status="@OrderStatus.Approved" class="btn rounded-pill px-4 @(Model.CurrentStatus == OrderStatus.Approved
+                               ? "btn-dark text-white"
+                               : "btn-outline-dark")">
+                Awaiting Route
+            </a>
+        }
+
+        <a asp-action="Index" asp-route-status="@OrderStatus.InTransit" class="btn rounded-pill px-4 @(Model.CurrentStatus == OrderStatus.InTransit
+                       ? "btn-dark text-white"
+                       : "btn-outline-dark")">
+            In Transit
+        </a>
+
+        <a asp-action="Index" asp-route-status="@OrderStatus.OutForDelivery" class="btn rounded-pill px-4 @(Model.CurrentStatus == OrderStatus.OutForDelivery
+                       ? "btn-dark text-white"
+                       : "btn-outline-dark")">
+            Out for Delivery
+        </a>
+
+        <a asp-action="Index" asp-route-status="@OrderStatus.Delivered" class="btn rounded-pill px-4 @(Model.CurrentStatus == OrderStatus.Delivered
+                       ? "btn-dark text-white"
+                       : "btn-outline-dark")">
+            Delivered
+        </a>
+
+    </div>
+
+    @if (!Model.Orders.Any())
+    {
+        <div class="text-center py-5 text-dark">
+            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+            No orders found for this filter.
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Order #</th>
+                            <th>Buyer</th>
+                            <th>Destination</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Route</th>
+                            <th>Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model.Orders)
+                        {
+                            var hasRoute = order.RouteAssignment != null;
+                            var (badgeCss, badgeLabel) = order.Status switch
+                            {
+                                OrderStatus.Approved       => ("bg-warning text-dark", "Awaiting Route"),
+                                OrderStatus.InTransit      => ("bg-info text-dark",    "In Transit"),
+                                OrderStatus.OutForDelivery => ("bg-primary",           "Out for Delivery"),
+                                OrderStatus.Delivered      => ("bg-success",           "Delivered"),
+                                OrderStatus.Cancelled      => ("bg-danger",            "Cancelled"),
+                                _                          => ("bg-secondary",         order.Status)
+                            };
+                            <tr>
+                                <td class="ps-4 fw-semibold">@order.OrderNumber</td>
+                                <td>@order.Buyer?.FullName</td>
+                                <td class="text-dark small" style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    @order.DeliveryAddress
+                                </td>
+                                <td>₱@order.TotalAmount.ToString("N2")</td>
+                                <td><span class="badge rounded-pill @badgeCss">@badgeLabel</span></td>
+                                <td>
+                                    @if (hasRoute)
+                                    {
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                                            <i class="bi bi-check2-circle me-1"></i>Assigned
+                                        </span>
+                                    }
+                                    else if (order.Status == OrderStatus.Approved && isMain)
+                                    {
+                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">
+                                            <i class="bi bi-exclamation-circle me-1"></i>Needs Route
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-dark small">—</span>
+                                    }
+                                </td>
+                                <td class="text-dark small">@order.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</td>
+                                <td>
+                                    <a asp-action="Detail" asp-route-id="@order.Id"
+                                       class="btn btn-sm btn-outline-dark rounded-pill px-3">View</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

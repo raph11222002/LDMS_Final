@@ -1,0 +1,1070 @@
+@model LDMS_Final.ViewModels.LogisticOrderDetailViewModel
+@using LDMS_Final.Models
+@using System.Globalization
+@{
+    ViewData["Title"] = $"Order {Model.Order.OrderNumber}";
+    Layout = "_Layout";
+
+    var order    = Model.Order;
+    var route    = Model.RouteAssignment;
+    bool isMain  = Model.IsMainLStaff;
+
+    // Resolved destination coords
+    double? mapLat  = order.DeliveryLatitude  ?? (double?)(route?.ResolvedLatitude  != null ? (double)route.ResolvedLatitude  : null);
+    double? mapLng  = order.DeliveryLongitude ?? (double?)(route?.ResolvedLongitude != null ? (double)route.ResolvedLongitude : null);
+    string  mapAddr = route?.ResolvedAddress  ?? order.DeliveryAddress;
+
+    // Hub data for JS
+    var allHubs = DeliveryHubInfo.HubSequence.Select(h => new {
+        value     = (int)h,
+        label     = DeliveryHubInfo.Hubs[h].Label,
+        shortName = DeliveryHubInfo.Hubs[h].ShortName,
+        lat       = DeliveryHubInfo.Hubs[h].Lat,
+        lng       = DeliveryHubInfo.Hubs[h].Lng,
+        suggested = Model.SuggestedHubs.Contains(h)
+    }).ToList();
+
+    // Existing stop summary for re-assign pre-fill
+    var existingDriverMap = route?.HubStops
+        .OrderBy(s => s.StopOrder)
+        .ToDictionary(s => s.StopOrder, s => s.AssignedDriverId ?? "")
+        ?? new Dictionary<int, string>();
+}
+
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+<style>
+    #route-map { height: 400px; border-radius: 12px; }
+
+    /* Hub selector */
+    .hub-item { cursor: pointer; transition: all .15s; border: 1.5px solid #dee2e6 !important; }
+    .hub-item:hover { border-color: #0d6efd !important; background: #f0f6ff; }
+    .hub-item.selected { background: #e8f3ff; border-color: #0d6efd !important; }
+    .hub-item.disabled-hub { opacity: .75; cursor: not-allowed; pointer-events: none; }
+
+    /* Leg driver rows */
+    .leg-row { background: #f8f9fa; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border: 1.5px solid transparent; }
+    .leg-row.has-error { border-color: #dc3545 !important; }
+
+    /* Timeline */
+    .tl-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .tl-line { width: 2px; background: #dee2e6; flex-grow: 1; min-height: 20px; margin: 3px auto; }
+
+    /* Confirmation modal route list */
+    .confirm-stop { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+    .confirm-stop:last-child { border-bottom: none; }
+    .confirm-num { width: 26px; height: 26px; border-radius: 50%; background: #0d6efd; color: #fff;
+                   font-size: .75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+</style>
+
+<div class="container-fluid py-4 px-4">
+
+    <!-- Back + heading -->
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i>Back to Orders
+        </a>
+        <h1 class="text-dark fw-bold mt-1 mb-0">@order.OrderNumber</h1>
+        <span class="badge rounded-pill
+            @(order.Status == OrderStatus.Approved       ? "bg-warning text-dark" :
+              order.Status == OrderStatus.InTransit      ? "bg-info text-dark"    :
+              order.Status == OrderStatus.OutForDelivery ? "bg-primary"           :
+              order.Status == OrderStatus.Delivered      ? "bg-success"           : "bg-secondary")
+            mt-1">
+            @order.Status
+        </span>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3">
+            <i class="bi bi-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3">
+            <i class="bi bi-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+
+        <!-- ═══════════════════════════════════════════
+             LEFT COLUMN
+        ═══════════════════════════════════════════ -->
+        <div class="col-12 col-xl-6">
+
+            <!-- Order Summary -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Order Details</h6>
+                </div>
+                <div class="card-body px-4 py-3">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <small class="text-dark d-block">Buyer</small>
+                            <span class="fw-semibold">@order.Buyer?.FullName</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-dark d-block">Contact</small>
+                            <span>@order.DeliveryContactNumber</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-dark d-block">Payment</small>
+                            <span class="badge bg-dark rounded-pill">@order.PaymentMethod</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-dark d-block">Shipping Fee</small>
+                            <span class="fw-semibold text-success">₱@order.ShippingFee.ToString("N2")</span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-dark d-block">Total</small>
+                            <span class="fw-bold fs-5">₱@order.TotalAmount.ToString("N2")</span>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-dark d-block">Delivery Address</small>
+                            <span>@order.DeliveryAddress</span>
+                        </div>
+                        @if (order.DeliveryLatitude.HasValue)
+                        {
+                            <div class="col-12">
+                                <small class="text-dark d-block">GPS Coordinates</small>
+                                <code class="small">@order.DeliveryLatitude.Value.ToString("F6", CultureInfo.InvariantCulture), @order.DeliveryLongitude!.Value.ToString("F6", CultureInfo.InvariantCulture)</code>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(order.DeliveryNote))
+                        {
+                            <div class="col-12">
+                                <small class="text-dark d-block">Note</small>
+                                <span class="text-dark">@order.DeliveryNote</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-bag me-2 text-primary"></i>Items</h6>
+                </div>
+                <div class="card-body px-4 py-3">
+                    @foreach (var item in order.Items)
+                    {
+                        <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                            <div>
+                                <span class="fw-semibold">@item.Product?.Name</span>
+                                <small class="text-dark ms-2"> x @item.Quantity</small>
+                            </div>
+                            <span>₱@((item.UnitPrice * item.Quantity).ToString("N2"))</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- MAP -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-map me-2 text-primary"></i>Delivery Route Map</h6>
+                    <small class="text-dark" id="coordDisplay">
+                        @if (mapLat.HasValue)
+                        {
+                            <span>@mapLat.Value.ToString("F6", CultureInfo.InvariantCulture), @mapLng!.Value.ToString("F6", CultureInfo.InvariantCulture)</span>
+                        }
+                    </small>
+                </div>
+                <div class="card-body px-4 py-3">
+                    @if (isMain)
+                    {
+                        <div class="input-group mb-3">
+                            <input type="text" id="addressSearch" class="form-control rounded-start-3"
+                                   placeholder="Search address or paste coordinates…" value="@mapAddr" />
+                            <button class="btn btn-dark" type="button" id="searchBtn">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="searchSuggestions" class="list-group mb-2" style="display:none;position:relative;z-index:10;"></div>
+                    }
+
+                    <div id="route-map"></div>
+
+                    <!-- Hidden coord fields synced from map interaction -->
+                    <input type="hidden" id="resolvedLat"  value="@mapLat?.ToString("F7", CultureInfo.InvariantCulture)" />
+                    <input type="hidden" id="resolvedLng"  value="@mapLng?.ToString("F7", CultureInfo.InvariantCulture)" />
+                    <input type="hidden" id="resolvedAddr" value="@mapAddr" />
+
+                    @if (isMain)
+                    {
+                        <small class="text-dark mt-2 d-block">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Drag the <span class="text-danger fw-semibold">red marker</span> or click the map to set the delivery location.
+                            The route line updates automatically.
+                        </small>
+                    }
+                </div>
+            </div>
+
+            <!-- Status History -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Status History</h6>
+                </div>
+                <div class="card-body px-4 py-3">
+                    @{
+                        // Show ALL logs to logistic staff (including internal ones)
+                        var logs = order.StatusLogs.OrderByDescending(l => l.CreatedAt).ToList();
+                    }
+                    @if (!logs.Any())
+                    {
+                        <p class="text-dark mb-0">No history yet.</p>
+                    }
+                    @foreach (var log in logs)
+                    {
+                        <div class="d-flex gap-3 mb-3">
+                            <div class="d-flex flex-column align-items-center" style="width:18px;">
+                                <div class="tl-dot"
+                                     style="background:@(log.Status == OrderStatus.Delivered ? "#198754" :
+                                                         log.Status == OrderStatus.Cancelled ? "#dc3545" :
+                                                         log.Status.Contains("transit") ? "#0dcaf0" :
+                                                         log.Status == "Order processed"  ? "#6f42c1" : "#ffc107")">
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold small d-flex align-items-center gap-2">
+                                    @log.Status
+                                    @if (!log.IsVisibleToBuyer)
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                              style="font-size:.65rem;">Internal</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(log.Note))
+                                {
+                                    <div class="text-dark small">@log.Note</div>
+                                }
+                                <div class="text-dark" style="font-size:.73rem;">
+                                    @log.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                    @if (!string.IsNullOrWhiteSpace(log.UpdatedByName))
+                                    { <span class="ms-1">— @log.UpdatedByName</span> }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+        </div><!-- /left col -->
+
+        <!-- ═══════════════════════════════════════════
+             RIGHT COLUMN
+        ═══════════════════════════════════════════ -->
+        <div class="col-12 col-xl-6">
+
+            @* ── Existing route summary ── *@
+            @if (route != null)
+            {
+                <div class="card border-0 shadow-sm rounded-4 mb-4" id="routeSummaryCard">
+                    <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
+                        <h6 class="fw-bold mb-0"><i class="bi bi-diagram-3 me-2 text-success"></i>Assigned Route</h6>
+                        @if (isMain)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" id="toggleReassignBtn">
+                                <i class="bi bi-pencil me-1"></i>Re-assign
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body px-4 py-3">
+                        <!-- Warehouse origin -->
+                        <div class="d-flex align-items-start gap-3 mb-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center fw-bold"
+                                     style="width:22px;height:22px;font-size:.68rem;flex-shrink:0;">W</div>
+                                <div class="tl-line"></div>
+                            </div>
+                            <div class="flex-grow-1 pb-2">
+                                <div class="fw-semibold small">Warehouse Origin (Davao City)</div>
+                                <small class="text-dark">Starting point</small>
+                            </div>
+                        </div>
+                        @foreach (var stop in route.HubStops.OrderBy(s => s.StopOrder))
+                        {
+                            bool isLast = stop.StopOrder == route.HubStops.Count - 1;
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                <div class="d-flex flex-column align-items-center">
+                                    <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold"
+                                         style="width:22px;height:22px;font-size:.68rem;flex-shrink:0;
+                                                background:@(stop.StopStatus == HubStopStatus.Arrived ? "#198754" :
+                                                              stop.StopStatus == HubStopStatus.InTransit ? "#0dcaf0" : "#0d6efd")">
+                                        @(stop.StopOrder + 1)
+                                    </div>
+                                    @if (!isLast) { <div class="tl-line"></div> }
+                                </div>
+                                <div class="flex-grow-1 pb-2">
+                                    <div class="fw-semibold small">@stop.HubLabel</div>
+                                    @if (stop.AssignedDriver != null)
+                                    {
+                                        <small class="text-dark d-block">
+                                            <i class="bi bi-truck me-1"></i>@stop.AssignedDriver.FullName
+                                            <span class="badge bg-secondary ms-1">@stop.DriverLabel</span>
+                                        </small>
+                                    }
+
+                                    <div class="d-flex flex-column align-items-start">
+                                        <span class="badge rounded-pill mt-1
+                                            @(stop.StopStatus == HubStopStatus.Arrived ? "bg-success" :
+                                                    stop.StopStatus == HubStopStatus.InTransit ? "bg-info text-dark" :
+                                                    stop.StopStatus == HubStopStatus.Completed ? "bg-secondary" : "bg-light text-dark border")">
+                                            @stop.StopStatus
+                                        </span>
+
+                                        @{
+                                            var nextStop = route.HubStops.FirstOrDefault(s => s.StopOrder == stop.StopOrder + 1);
+                                            bool isLastHub = nextStop == null;
+
+                                            var canReassign = !isMain
+                                                            && stop.Hub == Model.CurrentStaffHub
+                                                            && (stop.StopStatus == HubStopStatus.Arrived
+                                                            || stop.StopStatus == HubStopStatus.Completed)
+                                                            && (isLastHub
+                                                            || nextStop!.StopStatus == HubStopStatus.Pending);
+
+                                            // Last hub checks OutgoingDriverId, others check nextStop.AssignedDriverId
+                                            var hasNextDriver = isLastHub
+                                                ? stop.OutgoingDriverId != null
+                                                : nextStop?.AssignedDriverId != null;
+
+                                            // ── NEW: pick driver list and label based on leg type ──
+                                            var driversForLeg = isLastHub
+                                                ? Model.MotorcycleDrivers
+                                                : Model.AvailableDrivers;
+
+                                            var dropdownLabel = isLastHub
+                                                ? "Assign Motorcycle Driver (Final Delivery)"
+                                                : "Assign Next Driver";
+                                        }
+
+                                        @* Show outgoing delivery driver on last hub stop *@
+                                        @if (isLastHub && stop.OutgoingDriver != null)
+                                        {
+                                            <small class="text-dark d-block mt-1">
+                                                <i class="bi bi-bicycle me-1"></i>@stop.OutgoingDriver.FullName
+                                                <span class="badge bg-secondary ms-1">@stop.OutgoingDriverLabel</span>
+                                                <span class="badge bg-success ms-1">Final Door-to-Door</span>
+                                            </small>
+                                        }
+
+                                        @if (canReassign)
+                                        {
+                                            @if (hasNextDriver)
+                                            {
+                                                <button class="btn btn-xs btn-outline-secondary rounded-pill mt-2 px-2"
+                                                        style="font-size:.72rem;" type="button"
+                                                        id="reassignToggle_@stop.Id"
+                                                        onclick="
+                                                            document.getElementById('reassignForm_@stop.Id').classList.remove('d-none');
+                                                            this.classList.add('d-none');
+                                                        ">
+                                                    <i class="bi bi-pencil me-1"></i>Re-assign Driver
+                                                </button>
+
+                                                <small class="text-dark d-block mt-1" style="font-size:.72rem;">
+                                                    <i class="bi bi-info-circle me-1"></i>
+                                                    @if (isLastHub)
+                                                    {
+                                                        <text>Assigning motorcycle driver for final door-to-door delivery</text>
+                                                    }
+                                                    else
+                                                    {
+                                                        <text>Assigning driver for leg to <strong>@nextStop?.HubLabel</strong></text>
+                                                    }
+                                                </small>
+                                            }
+
+                                            <div class="reassign-wrap w-100">
+                                                <form asp-action="AssignNextDriver" method="post"
+                                                    class="reassign-form mt-2 @(hasNextDriver ? "d-none" : "")"
+                                                    id="reassignForm_@stop.Id">
+
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="OrderId"   value="@order.Id" />
+                                                    <input type="hidden" name="HubStopId" value="@stop.Id" />
+
+                                                    @if (!driversForLeg.Any())
+                                                    {
+                                                        <div class="alert alert-warning rounded-3 mb-2 small py-2">
+                                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                                            @(isLastHub
+                                                                ? "No motorcycle drivers available at this hub. Please register one first."
+                                                                : "No van drivers available at this hub.")
+                                                        </div>
+                                                    }
+
+                                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                                        <select name="AssignedDriverId" class="form-select form-select-sm" required>
+                                                            <option value="">— @dropdownLabel —</option>
+                                                            @foreach (var d in driversForLeg)
+                                                            {
+                                                                bool isSelected = isLastHub
+                                                                    ? stop.OutgoingDriverId == d.Id
+                                                                    : nextStop?.AssignedDriverId == d.Id;
+                                                                <option value="@d.Id" selected="@isSelected">
+                                                                    @d.FullName
+                                                                    @if (!string.IsNullOrEmpty(d.VehicleType))
+                                                                    {
+                                                                        <text>(@d.VehicleType — @d.PlateNumber)</text>
+                                                                    }
+                                                                </option>
+                                                            }
+                                                        </select>
+
+                                                        <button class="btn btn-sm btn-dark rounded-pill px-3 flex-shrink-0"
+                                                                type="submit">
+                                                            @(hasNextDriver ? "Update" : "Assign")
+                                                        </button>
+
+                                                        @if (hasNextDriver)
+                                                        {
+                                                            <button type="button"
+                                                                    class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0"
+                                                                    onclick="
+                                                                        document.getElementById('reassignForm_@stop.Id').classList.add('d-none');
+                                                                        document.getElementById('reassignToggle_@stop.Id').classList.remove('d-none');
+                                                                    ">
+                                                                <i class="bi bi-x"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <!-- Destination -->
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center"
+                                 style="width:22px;height:22px;font-size:.8rem;flex-shrink:0;">
+                                <i class="bi bi-house-fill"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold small">Delivery Destination</div>
+                                <small class="text-dark">@(route.ResolvedAddress ?? order.DeliveryAddress)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* ── Assignment Form (Main L-Staff only) ── *@
+            @if (isMain)
+            {
+                <div id="assignPanel" class="@(route != null ? "d-none" : "")">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                            <h6 class="fw-bold mb-0">
+                                <i class="bi bi-signpost-split me-2 text-primary"></i>
+                                @(route != null ? "Re-assign Route" : "Assign Route & Driver")
+                            </h6>
+                                <small class="text-dark d-block mt-1">
+                                Select the sorting hubs this parcel will pass through, then assign a warehouse driver for the first leg.
+                            </small>
+                        </div>
+                        <div class="card-body px-4 py-3">
+                            <form id="assignForm" novalidate>
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="OrderId"           id="fOrderId"  value="@order.Id" />
+                                <input type="hidden" name="ResolvedLatitude"  id="fLat"      value="@mapLat?.ToString("F7", CultureInfo.InvariantCulture)" />
+                                <input type="hidden" name="ResolvedLongitude" id="fLng"      value="@mapLng?.ToString("F7", CultureInfo.InvariantCulture)" />
+                                <input type="hidden" name="ResolvedAddress"   id="fAddr"     value="@mapAddr" />
+                                <input type="hidden" name="SelectedHubs"      id="fHubs" />
+
+                                <!-- Step 1: Hubs -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold mb-2">
+                                        <span class="badge bg-primary rounded-pill me-2">1</span>Select Sorting Hubs
+                                    </label>
+                                    <small class="text-dark d-block mb-3">
+                                        Highlighted hubs are auto-suggested based on destination.
+                                        Davao is always required — every parcel passes through it first.
+                                    </small>
+                                    <div id="hubSelector">
+                                        @foreach (var hub in allHubs)
+                                        {
+                                            bool isDavao = hub.value == (int)DeliveryHub.Davao;
+                                            <div class="hub-item rounded-3 p-3 mb-2 d-flex align-items-center gap-3 @(hub.suggested ? "selected" : "") @(isDavao ? "disabled-hub" : "")"
+                                                 data-hub="@hub.value" data-label="@hub.label" data-shortname="@hub.shortName">
+                                                <input type="checkbox" class="form-check-input flex-shrink-0 hub-cb"
+                                                       id="hub_@hub.value" value="@hub.value"
+                                                       @(hub.suggested || isDavao ? "checked" : "")
+                                                       @(isDavao ? "disabled" : "") />
+                                                <label class="form-check-label mb-0 w-100" for="hub_@hub.value" style="cursor:pointer;">
+                                                    <span class="fw-semibold small d-block">@hub.shortName</span>
+                                                    <small class="text-dark">@hub.label</small>
+                                                </label>
+                                                <div class="d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                                                    @if (hub.suggested || isDavao)
+                                                    {
+                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill"
+                                                              style="font-size:.68rem;">@(isDavao ? "Required" : "Suggested")</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <hr />
+
+                                <!-- Step 2: Driver per leg -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold mb-2">
+                                        <span class="badge bg-primary rounded-pill me-2">2</span>Assign Drivers per Leg
+                                    </label>
+                                    <small class="text-dark d-block mb-3">
+                                        Assign a warehouse driver for <strong>each leg</strong> departing from the warehouse/hub.
+                                        All driver fields are required before confirming.
+                                    </small>
+                                    <div id="legRows">
+                                        <!-- Built dynamically by JS -->
+                                    </div>
+                                    <div id="legError" class="text-danger small mt-1 d-none">
+                                        <i class="bi bi-exclamation-circle me-1"></i>Please assign a driver to every leg before confirming.
+                                    </div>
+                                </div>
+
+                                <!-- Confirm button → opens modal -->
+                                <button type="button" class="btn btn-dark rounded-pill px-4 w-100" id="openConfirmBtn">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    @(route != null ? "Update Route Assignment" : "Confirm Route Assignment")
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (route != null)
+            {
+                <!-- Hub L-Staff info box -->
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body px-4 py-4">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-geo-alt me-2 text-primary"></i>Your Hub Responsibility</h6>
+                        @{
+                            var myStop = route.HubStops
+                                .FirstOrDefault(s => s.Hub == Model.CurrentStaffHub);
+                        }
+                        @if (myStop != null)
+                        {
+                            <p class="mb-2"><strong>Hub:</strong> @myStop.HubLabel</p>
+                            <p class="mb-2">
+                                <strong>Incoming driver:</strong>
+                                @(myStop.AssignedDriver?.FullName ?? "— Not yet assigned")
+                            </p>
+                            <p class="mb-0">
+                                <strong>Status:</strong>
+                                <span class="badge rounded-pill bg-info text-dark ms-1">@myStop.StopStatus</span>
+                            </p>
+                            @if (myStop.StopStatus == HubStopStatus.Arrived)
+                            {
+                                <div class="alert alert-warning rounded-3 mt-3 mb-0">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Parcel has arrived at your hub. Assign the next driver using the form in the route summary above.
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-dark mb-0">This order does not pass through your hub.</p>
+                        }
+                    </div>
+                </div>
+            }
+
+        </div><!-- /right col -->
+    </div>
+</div>
+
+@section Modals {
+    <input type="hidden" id="orderNumber" value="@order.OrderNumber" />
+    <input type="hidden" id="buyerName" value="@order.Buyer?.FullName" />
+
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-check2-circle me-2 text-success"></i>Confirm Route Assignment
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 py-3">
+                    <p class="text-dark mb-3">Please review the route details before finalizing.</p>
+                    <div class="bg-light rounded-3 p-3 mb-4">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <small class="text-dark d-block">Order</small>
+                                <span class="fw-semibold" id="confirmOrderNumber">—</span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-dark d-block">Buyer</small>
+                                <span id="confirmBuyerName">—</span>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-dark d-block">Resolved Destination</small>
+                                <span id="confirmAddr" class="small">—</span>
+                            </div>
+                        </div>
+                    </div>
+                    <h6 class="fw-semibold mb-3">Route Stops</h6>
+                    <div id="confirmStops"></div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">
+                        <i class="bi bi-arrow-left me-1"></i>Go Back &amp; Edit
+                    </button>
+                    <button type="button" class="btn btn-dark rounded-pill px-4" id="finalSubmitBtn">
+                        <i class="bi bi-check-circle me-2"></i>Finalize Assignment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden real form -->
+    <form method="post" asp-action="AssignRoute" id="realForm" style="display:none;">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="OrderId" id="rOrderId" />
+        <input type="hidden" name="ResolvedLatitude" id="rLat" />
+        <input type="hidden" name="ResolvedLongitude" id="rLng" />
+        <input type="hidden" name="ResolvedAddress" id="rAddr" />
+        <input type="hidden" name="SelectedHubs" id="rHubs" />
+        <div id="rLegs"></div>
+    </form>
+}
+
+@section Scripts {
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+mapboxgl.accessToken = '@Model.MapboxToken';
+
+const WAREHOUSE = { lat: @DeliveryHubInfo.WarehouseLatitude.ToString("F7", CultureInfo.InvariantCulture),
+                    lng: @DeliveryHubInfo.WarehouseLongitude.ToString("F7", CultureInfo.InvariantCulture),
+                    label: 'Warehouse Origin (Davao City)' };
+
+const HUBS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    allHubs.ToDictionary(h => h.value.ToString(), h => new { h.lat, h.lng, h.label, h.shortName })
+));
+
+const DRIVERS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+    Model.AvailableDrivers.Select(d => new { id = d.Id, name = d.FullName })
+));
+
+const EXISTING_DRIVERS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(existingDriverMap));
+
+let destLat = parseFloat('@(mapLat?.ToString("F7", CultureInfo.InvariantCulture) ?? "7.0369")');
+let destLng = parseFloat('@(mapLng?.ToString("F7", CultureInfo.InvariantCulture) ?? "125.5254")');
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MAPBOX INIT
+// ─────────────────────────────────────────────────────────────────────────────
+const map = new mapboxgl.Map({
+    container: 'route-map',
+    style: 'mapbox://styles/mapbox/streets-v12',
+    center: [destLng, destLat],
+    zoom: 7
+});
+map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+// Warehouse marker
+const whEl = Object.assign(document.createElement('div'), { innerHTML: '<i class="bi bi-building" style="font-size:24px;color:#6f42c1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"></i>' });
+new mapboxgl.Marker({ element: whEl, anchor: 'bottom' })
+    .setLngLat([WAREHOUSE.lng, WAREHOUSE.lat])
+    .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(WAREHOUSE.label))
+    .addTo(map);
+
+// Hub markers
+Object.entries(HUBS).forEach(([key, h]) => {
+    const el = Object.assign(document.createElement('div'), {
+        innerHTML: `<i class="bi bi-geo-alt-fill" style="font-size:22px;color:#1a73e8;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))"></i>`
+    });
+    new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([h.lng, h.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText(h.label))
+        .addTo(map);
+});
+
+// Destination marker
+const destEl = Object.assign(document.createElement('div'), {
+    innerHTML: '<i class="bi bi-house-fill" style="font-size:28px;color:#e53935;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))"></i>'
+});
+@if (isMain)
+{
+    <text>
+    const destMarker = new mapboxgl.Marker({ element: destEl, anchor: 'bottom', draggable: true })
+        .setLngLat([destLng, destLat]).addTo(map);
+
+    destMarker.on('dragend', () => {
+        const p = destMarker.getLngLat();
+        updateDestination(p.lng, p.lat, null);
+    });
+    map.on('click', e => {
+        destMarker.setLngLat(e.lngLat);
+        updateDestination(e.lngLat.lng, e.lngLat.lat, null);
+    });
+    </text>
+}
+else
+{
+    <text>
+    new mapboxgl.Marker({ element: destEl, anchor: 'bottom' })
+        .setLngLat([destLng, destLat])
+        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Delivery Destination'))
+        .addTo(map);
+    </text>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MAPBOX DIRECTIONS (turn-by-turn route line)
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchRoute(coords) {
+    // coords = array of [lng, lat] waypoints
+    if (coords.length < 2) return null;
+    const waypointStr = coords.map(c => c.join(',')).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${waypointStr}` +
+                `?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+    try {
+        const res  = await fetch(url);
+        const data = await res.json();
+        return data.routes?.[0]?.geometry ?? null;
+    } catch { return null; }
+}
+
+async function drawDirectionsRoute() {
+    const selectedHubKeys = getSelectedHubKeys();
+    const waypoints = [
+        [WAREHOUSE.lng, WAREHOUSE.lat],
+        ...selectedHubKeys.map(k => [HUBS[k].lng, HUBS[k].lat]),
+        [destLng, destLat]
+    ];
+
+    const geometry = await fetchRoute(waypoints);
+
+    const source = map.getSource('directions-route');
+    const geojson = geometry
+        ? { type: 'Feature', geometry }
+        : { type: 'Feature', geometry: { type: 'LineString', coordinates: waypoints } };
+
+    if (source) {
+        source.setData(geojson);
+    } else {
+        map.addSource('directions-route', { type: 'geojson', data: geojson });
+        map.addLayer({
+            id: 'directions-route',
+            type: 'line',
+            source: 'directions-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#0d6efd', 'line-width': 4, 'line-opacity': .8 }
+        });
+        // Casing
+        map.addLayer({
+            id: 'directions-route-casing',
+            type: 'line',
+            source: 'directions-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#fff', 'line-width': 7, 'line-opacity': .35 }
+        }, 'directions-route');
+    }
+}
+
+map.on('load', () => drawDirectionsRoute());
+
+                // ─────────────────────────────────────────────────────────────────────────────
+                //  GEOCODER (address search)
+                // ─────────────────────────────────────────────────────────────────────────────
+                @if (isMain)
+                {
+                    <text>
+                        let searchTimer;
+                        const searchInput = document.getElementById('addressSearch');
+                        const searchBtn   = document.getElementById('searchBtn');
+                        const suggestions = document.getElementById('searchSuggestions');
+
+                        async function geocode(q) {
+                        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
+                        `?access_token=${mapboxgl.accessToken}&limit=5&country=ph`;
+                        const res = await fetch(url);
+                        return (await res.json()).features || [];
+                        }
+
+                        function pickFeature(f) {
+                        const [lng, lat] = f.center;
+                        destMarker.setLngLat([lng, lat]);
+                        map.flyTo({center: [lng, lat], zoom: 13 });
+                        searchInput.value = f.place_name;
+                        suggestions.style.display = 'none';
+                        updateDestination(lng, lat, f.place_name);
+                        }
+
+                        searchInput.addEventListener('input', () => {
+                        clearTimeout(searchTimer);
+                        const q = searchInput.value.trim();
+                        if (q.length < 3) {suggestions.style.display = 'none'; return; }
+                                   searchTimer = setTimeout(async () => {
+                        const features = await geocode(q);
+                        suggestions.innerHTML = '';
+                        features.forEach(f => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action py-2 small';
+                        btn.textContent = f.place_name;
+                        btn.onclick = () => pickFeature(f);
+                        suggestions.appendChild(btn);
+                        });
+                        suggestions.style.display = features.length ? 'block' : 'none';
+                        }, 350);
+                        });
+
+                        searchBtn.onclick = async () => {
+                        const q = searchInput.value.trim();
+                        if (!q) return;
+                        const features = await geocode(q);
+                        if (features.length) pickFeature(features[0]);
+                        suggestions.style.display = 'none';
+                        };
+
+                        document.addEventListener('click', e => {
+                        if (!e.target.closest('#addressSearch') && !e.target.closest('#searchSuggestions'))
+                        suggestions.style.display = 'none';
+                        });
+                    </text>
+                }
+
+                // ─────────────────────────────────────────────────────────────────────────────
+                //  HUB SELECTION + LEG DRIVER ROWS
+                // ─────────────────────────────────────────────────────────────────────────────
+                @if (isMain)
+                {
+                    <text>
+                        function getSelectedHubKeys() {
+                        return Array.from(document.querySelectorAll('.hub-cb:checked')).map(cb => cb.value);
+                        }
+
+                        function updateDestination(lng, lat, addr) {
+                        destLat = lat; destLng = lng;
+                        document.getElementById('fLat').value = lat.toFixed(7);
+                        document.getElementById('fLng').value = lng.toFixed(7);
+                        document.getElementById('coordDisplay').textContent = lat.toFixed(6) + ', ' + lng.toFixed(6);
+                        if (addr) {
+                        document.getElementById('fAddr').value = addr;
+                        document.getElementById('resolvedAddr').value = addr;
+                        }
+                        autoSuggestHubs(lat);
+                        renderLegRows();
+                        drawDirectionsRoute();
+                        }
+
+                        function autoSuggestHubs(lat) {
+                        document.querySelectorAll('.hub-cb').forEach(cb => {
+                        const hub = HUBS[cb.value];
+                        if (!hub || cb.disabled) return;
+                        const needed = lat > hub.lat;
+                        cb.checked = needed;
+                        cb.closest('.hub-item').classList.toggle('selected', needed);
+                        });
+                        }
+
+                        function buildDriverSelect(name, existingVal) {
+                        let s = `<select class="form-select form-select-sm driver-select" name="${name}" required>`;
+                        s += '<option value="">— Select Driver —</option>';
+                        DRIVERS.forEach(d => {
+                        const sel = existingVal && d.id === existingVal ? 'selected' : '';
+                        s += `<option value="${d.id}" ${sel}>${d.name}</option>`;
+                        });
+                        s += '</select>';
+                        return s;
+                        }
+
+                        function renderLegRows() {
+                            const keys      = getSelectedHubKeys();
+                            const container = document.getElementById('legRows');
+                            container.innerHTML = '';
+
+                            if (!keys.length) {
+                                container.innerHTML = '<p class="text-dark small">Select at least one hub above.</p>';
+                                document.getElementById('fHubs').value = '';
+                                return;
+                            }
+
+                            document.getElementById('fHubs').value = keys.join(',');
+
+                            keys.forEach((k, i) => {
+                                const fromLabel = i === 0 ? WAREHOUSE.label : HUBS[keys[i - 1]].label;
+                                const existing  = EXISTING_DRIVERS[String(i)] || '';
+
+                                const row = document.createElement('div');
+                                row.className = 'leg-row border';
+                                row.dataset.legIndex = i;
+
+                                // Only leg 0 gets a driver dropdown — hub L-Staff handle the rest
+                                const driverSection = i === 0
+                                    ? `${buildDriverSelect(`LegAssignments[${i}].AssignedDriverId`, existing)}
+                                    <div class="text-danger small mt-1 leg-err d-none">
+                                        <i class="bi bi-exclamation-circle me-1"></i>Driver is required.
+                                    </div>`
+                                    : `<div class="text-muted small mt-1">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Driver will be assigned by the <strong>${HUBS[k].shortName}</strong> hub staff upon arrival.
+                                    </div>`;
+
+                                row.innerHTML = `
+                                    <input type="hidden" name="LegAssignments[${i}].LegIndex" value="${i}" />
+                                    <div class="fw-semibold small mb-2">
+                                        <span class="badge bg-primary rounded-pill me-1">${i + 1}</span>
+                                        ${fromLabel} <i class="bi bi-arrow-right mx-1"></i> ${HUBS[k].shortName}
+                                        <span class="badge bg-secondary ms-1">van driver ${i + 1}</span>
+                                    </div>
+                                    ${driverSection}`;
+                                container.appendChild(row);
+                            });
+                        }
+
+                        document.querySelectorAll('.hub-cb:not([disabled])').forEach(cb => {
+                        cb.addEventListener('change', () => {
+                        cb.closest('.hub-item').classList.toggle('selected', cb.checked);
+                        renderLegRows();
+                        drawDirectionsRoute();
+                        });
+                        });
+                        document.querySelectorAll('.hub-item:not(.disabled-hub)').forEach(item => {
+                        item.addEventListener('click', e => {
+                        if (e.target.tagName === 'INPUT') return;
+                        const cb = item.querySelector('.hub-cb');
+                        cb.checked = !cb.checked;
+                        item.classList.toggle('selected', cb.checked);
+                        renderLegRows();
+                        drawDirectionsRoute();
+                        });
+                        });
+
+                        renderLegRows();
+
+                        const toggleBtn   = document.getElementById('toggleReassignBtn');
+                        const assignPanel = document.getElementById('assignPanel');
+                        if (toggleBtn && assignPanel) {
+                        toggleBtn.addEventListener('click', () => {
+                        const hidden = assignPanel.classList.toggle('d-none');
+                        toggleBtn.innerHTML = hidden
+                        ? '<i class="bi bi-pencil me-1"></i>Re-assign'
+                        : '<i class="bi bi-x me-1"></i>Cancel';
+                        });
+                        }
+
+                        document.getElementById('openConfirmBtn').addEventListener('click', () => {
+                        let valid = true;
+                        document.querySelectorAll('.leg-row').forEach(row => {
+                        const legIndex = parseInt(row.dataset.legIndex);
+                        if (legIndex !== 0) return; // only validate leg 0
+
+                        const sel = row.querySelector('.driver-select');
+                        const err = row.querySelector('.leg-err');
+                        if (!sel || !sel.value) {
+                        valid = false;
+                        row.classList.add('has-error');
+                        err.classList.remove('d-none');
+                        } else {
+                        row.classList.remove('has-error');
+                        err.classList.add('d-none');
+                        }
+                        });
+
+                        const legError = document.getElementById('legError');
+                        if (!valid) {legError.classList.remove('d-none'); return; }
+                        legError.classList.add('d-none');
+
+                        buildConfirmModal();
+                        new bootstrap.Modal(document.getElementById('confirmModal')).show();
+                        });
+
+                        function buildConfirmModal() {
+                        const keys    = getSelectedHubKeys();
+                        const addr = document.getElementById('resolvedAddr').value || '';
+                        
+                            // Populate from hidden fields
+                        document.getElementById('confirmOrderNumber').textContent = document.getElementById('orderNumber').value;
+                        document.getElementById('confirmBuyerName').textContent   = document.getElementById('buyerName').value;
+                        document.getElementById('confirmAddr').textContent        = addr;
+
+                        const stopsEl = document.getElementById('confirmStops');
+                        stopsEl.innerHTML = '';
+
+                        const wRow = document.createElement('div');
+                        wRow.className = 'confirm-stop';
+                        wRow.innerHTML = `<div class="confirm-num" style="background:#6f42c1;">W</div>
+                        <div><div class="fw-semibold small">${WAREHOUSE.label}</div>
+                            <small class="text-dark">Starting point</small></div>`;
+                            stopsEl.appendChild(wRow);
+
+                            keys.forEach((k, i) => {
+                            const sel = document.querySelectorAll('.driver-select')[i];
+                            const driverName = sel ? sel.options[sel.selectedIndex]?.text : '—';
+                            const row = document.createElement('div');
+                            row.className = 'confirm-stop';
+                            row.innerHTML = `<div class="confirm-num">${i + 1}</div>
+                            <div>
+                                <div class="fw-semibold small">${HUBS[k].label}</div>
+                                <small class="text-dark"><i class="bi bi-truck me-1"></i>${driverName} (van driver ${i + 1})</small>
+                            </div>`;
+                            stopsEl.appendChild(row);
+                            });
+
+                            const destRow = document.createElement('div');
+                            destRow.className = 'confirm-stop';
+                            destRow.innerHTML = `<div class="confirm-num" style="background:#e53935;"><i class="bi bi-house-fill" style="font-size:.65rem;"></i></div>
+                            <div><div class="fw-semibold small">Delivery Destination</div>
+                                <small class="text-dark">${addr}</small></div>`;
+                                stopsEl.appendChild(destRow);
+                                }
+
+                                document.getElementById('finalSubmitBtn').addEventListener('click', () => {
+                                const f = document.getElementById('realForm');
+
+                                document.getElementById('rOrderId').value = document.getElementById('fOrderId').value;
+                                document.getElementById('rLat').value     = document.getElementById('fLat').value;
+                                document.getElementById('rLng').value     = document.getElementById('fLng').value;
+                                document.getElementById('rAddr').value    = document.getElementById('fAddr').value;
+                                document.getElementById('rHubs').value    = document.getElementById('fHubs').value;
+
+                                const rLegs = document.getElementById('rLegs');
+                                rLegs.innerHTML = '';
+                                document.querySelectorAll('.leg-row').forEach(row => {
+                                const idx = row.dataset.legIndex;
+                                const sel = row.querySelector('.driver-select');
+                                rLegs.innerHTML +=
+                                `<input type="hidden" name="LegAssignments[${idx}].LegIndex" value="${idx}" />
+                                <input type="hidden" name="LegAssignments[${idx}].AssignedDriverId" value="${sel ? sel.value : ''}" />`;
+                                });
+
+                                f.submit();
+                                });
+                            </text>
+                        }
+else
+                        {
+                            <text>
+                                function getSelectedHubKeys() {
+                                return @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                                            route?.HubStops.OrderBy(s => s.StopOrder).Select(s => ((int)s.Hub).ToString()).ToList()
+                                            ?? new List<string>()
+                                        ));
+                                }
+                            </text>
+                        }
+</script>
+}

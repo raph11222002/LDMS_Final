@@ -1,0 +1,18 @@
+@model string
+@{
+    ViewData["Title"] = "Scan Error";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-5 px-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-5 text-center">
+            <div class="card border-0 rounded-4 shadow-sm p-5">
+                <i class="bi bi-exclamation-triangle-fill text-warning mb-3" style="font-size:3rem;"></i>
+                <h4 class="fw-bold mb-2">Scan Error</h4>
+                <p class="text-muted mb-4">@Model</p>
+                <a asp-action="Scan" class="btn btn-dark rounded-pill px-4">Try Again</a>
+            </div>
+        </div>
+    </div>
+</div>

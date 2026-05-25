@@ -1,0 +1,305 @@
+@model LDMS_Final.ViewModels.BuyerProductDetailViewModel
+@{
+    ViewData["Title"] = Model.Name;
+    Layout = "_Layout";
+    var images = new[] { Model.ImagePath1, Model.ImagePath2, Model.ImagePath3, Model.ImagePath4, Model.ImagePath5 }
+        .Where(x => !string.IsNullOrEmpty(x)).ToList();
+
+    var sizes = string.IsNullOrEmpty(Model.Sizes)
+        ? new List<string>()
+        : Model.Sizes.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+    var sizeOptions = Model.SizeOptions
+        .Select(so => new { Size = so.Sizes?.Trim() ?? string.Empty, so.Stock })
+        .ToList();
+    var hasVariants = Model.Variants.Any();
+    var hasSizes = sizes.Any();
+    var canBuy = Model.TotalStock > 0;
+}
+
+<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+
+    <div class="mb-3">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i> Back to Shop
+        </a>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Left: Image Gallery -->
+        <div class="col-12 col-md-7 col-lg-7">
+            <div class="d-flex gap-3">
+
+                <!-- Thumbnail strip -->
+                @if (images.Count > 1)
+                {
+                    <div class="thumb-strip d-none d-md-flex">
+                        @for (int i = 0; i < images.Count; i++)
+                        {
+                            <button type="button" class="@(i == 0 ? "active" : "")"
+                                    onclick="switchMainImage('@images[i]', this)">
+                                <img src="@images[i]" alt="Thumbnail @(i + 1)" />
+                            </button>
+                        }
+                    </div>
+                }
+
+                <!-- Main image -->
+                <div class="flex-grow-1">
+                    <div style="border-radius:12px;overflow:hidden;background:#f5f5f5;">
+                        @if (images.Any())
+                        {
+                            <img id="mainImage" src="@images[0]" alt="@Model.Name"
+                                 style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block;" />
+                        }
+                        else
+                        {
+                            <div
+                                style="width:100%;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;">
+                                <i class="bi bi-image text-dark" style="font-size:3rem;"></i>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Mobile thumbnail strip -->
+                    @if (images.Count > 1)
+                    {
+                        <div class="d-flex d-md-none gap-2 mt-2 flex-wrap">
+                            @for (int i = 0; i < images.Count; i++)
+                            {
+                                <button type="button" class="thumb-strip @(i == 0 ? "active" : "")"
+                                        onclick="switchMainImage('@images[i]', this)"
+                                        style="border:2px solid @(i == 0 ? "#111" : "#ddd");border-radius:6px;padding:2px;background:none;cursor:pointer;">
+                                    <img src="@images[i]"
+                                         style="width:52px;height:60px;object-fit:cover;border-radius:4px;display:block;" />
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Product Info -->
+        <div class="col-12 col-md-5 col-lg-5">
+
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="text-dark mb-1">@Model.Brand</div>
+                    <h2 class="fw-bold mb-1" style="color:#111;">@Model.Name</h2>
+                    <div class="text-dark mb-2">@Model.Category</div>
+                    <div class="fs-4 fw-bold mb-3" style="color:#111;">₱@Model.Price.ToString("N2")</div>
+                </div>
+            </div>
+
+            <!-- Stock Status -->
+            @if (Model.StockStatus == "OutOfStock")
+            {
+                <div class="alert alert-danger py-2 rounded-3 mb-3">
+                    <i class="bi bi-x-circle me-2"></i>Out of Stock — currently unavailable for purchase.
+                </div>
+            }
+            else if (Model.StockStatus == "LowStock")
+            {
+                <div class="alert alert-warning py-2 rounded-3 mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Low Stock — only @Model.TotalStock left!
+                </div>
+            }
+
+            <!-- Variants -->
+            @if (hasVariants)
+            {
+                <div class="mb-3">
+                    <div class="fw-semibold mb-2" style="font-size:0.9rem;">Select Variant</div>
+                    <div class="d-flex flex-wrap gap-2" id="variantButtons">
+                        @foreach (var v in Model.Variants)
+                        {
+                            // If product has sizes, check if any size has stock; otherwise check variant stock
+                            var variantHasStock = hasSizes 
+                                ? sizeOptions.Any(so => so.Stock > 0)
+                                : v.Stock > 0;
+                            var isVariantOutOfStock = !variantHasStock;
+                            
+                            <button type="button" class="variant-btn @(isVariantOutOfStock ? "variant-out-of-stock" : "")" data-variant="@v.Name"
+                                    data-stock="@v.Stock" onclick="selectVariant(this)" @(isVariantOutOfStock ? "disabled=\"disabled\"" : "")
+                                    title="@v.Name @(isVariantOutOfStock ? "(Out of Stock)" : $"({v.Stock} left)")">
+                                @if (!string.IsNullOrEmpty(v.ImagePath))
+                                {
+                                    <img src="@v.ImagePath" alt="@v.Name" />
+                                }
+                                else
+                                {
+                                    <span
+                                    style="display:inline-block;padding:6px 14px;font-size:0.85rem;font-weight:500;">@v.Name</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                    <!-- Variant warning — shown below the buttons -->
+                    <div id="variantName" class="text-dark small mt-1"></div>
+                    <div id="variantWarning" class="text-danger small mt-1" style="display:none;">
+                        <i class="bi bi-exclamation-circle me-1"></i>Please select a variant.
+                    </div>
+                </div>
+            }
+
+            <!-- Sizes -->
+            @if (hasSizes)
+            {
+                <div class="mb-4">
+                    <div class="fw-semibold mb-2" style="font-size:0.9rem;">Select Size</div>
+                    <div class="d-flex flex-wrap gap-2" id="sizeButtons">
+                        @foreach (var size in sizes.Select(s => new
+                        {
+                            Size = s,
+                            Stock = sizeOptions.FirstOrDefault(so => string.Equals(so.Size, s, StringComparison.OrdinalIgnoreCase))?.Stock ?? 0
+                        }))
+                        {
+                            var isOutOfStock = size.Stock == 0;
+                            <button type="button" class="size-btn @(isOutOfStock ? "opacity-75 stock-empty" : "")" data-size="@size.Size"
+                                    data-stock="@size.Stock" onclick="selectSize(this)" @(isOutOfStock ? "disabled=\"disabled\"" : "")
+                                    title="@size.Size @(isOutOfStock ? "(Out of Stock)" : $"({size.Stock} left)")">
+
+                                @size.Size @if (isOutOfStock) { <span class="text-muted small ms-1">—</span> }
+                            </button>
+                        }
+                    </div>
+
+                    <div id="sizeWarning" class="text-danger small mt-1" style="display:none;">
+                        <i class="bi bi-exclamation-circle me-1"></i>Please select a size.
+                    </div>
+                </div>
+            }
+
+            <!-- Description -->
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="text-dark mb-4" style="font-size:0.9rem; white-space:pre-wrap;">@Model.Description</p>
+            }
+
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <!-- Add to Cart -->
+                @if (canBuy)
+                {
+                    <form asp-controller="Cart" asp-action="AddToCart" method="post" id="cartForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="productId" value="@Model.Id" />
+                        <input type="hidden" name="variantName" id="hiddenVariant" value="" />
+                        <input type="hidden" name="selectedSize" id="hiddenSize" value="" />
+                        <button type="button" id="addToBagBtn" class="btn btn-dark w-100 py-3 rounded-pill fw-semibold mb-3"
+                                style="font-size:1rem;"
+                                onclick="addToBag(@hasSizes.ToString().ToLower(), @hasVariants.ToString().ToLower())">
+                            Add to Cart
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <button class="btn btn-secondary w-100 py-3 rounded-pill fw-semibold mb-3" disabled>
+                        Out of Stock
+                    </button>
+                }
+
+                <!-- Favorite -->
+                <form asp-action="ToggleFavorite" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="productId" value="@Model.Id" />
+                    <input type="hidden" name="returnUrl" value="@Url.Action("ProductDetail", new { id = Model.Id })" />
+                    <button type="submit"
+                            class="btn @(Model.IsFavorited ? "btn-danger" : "btn-outline-secondary") w-100 py-3 rounded-pill fw-semibold"
+                            style="font-size:1rem;">
+                        <i class="bi me-2 @(Model.IsFavorited ? "bi-heart-fill" : "bi-heart")"></i>
+                        @(Model.IsFavorited ? "Favorited" : "Favorite")
+                    </button>
+                </form>
+            }
+            else
+            {
+                @* Guest: buttons visible but redirect to login, returning to this product page after *@
+                var loginReturn = Url.Action("Login", "Account", new { returnUrl = Context.Request.Path });
+
+                <!-- Add to Cart -->
+                @if (Model.StockStatus != "OutOfStock")
+                {
+                    <a href="@loginReturn"
+                    class="btn btn-dark w-100 py-3 rounded-pill fw-semibold mb-3"
+                    style="font-size:1rem;">
+                        Add to Cart
+                    </a>
+                }
+                else
+                {
+                    <button class="btn btn-secondary w-100 py-3 rounded-pill fw-semibold mb-3" disabled>
+                        Out of Stock
+                    </button>
+                }
+
+                <!-- Favorite -->
+                <a href="@loginReturn"
+                class="btn btn-outline-secondary w-100 py-3 rounded-pill fw-semibold"
+                style="font-size:1rem;">
+                    <i class="bi bi-heart me-2"></i>
+                    Favorite
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let selectedVariant = null;
+        let selectedSize = null;
+
+        function switchMainImage(src, btn) {
+            document.getElementById('mainImage').src = src;
+            document.querySelectorAll('.thumb-strip button, .thumb-strip').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        function selectVariant(btn) {
+            if (btn.disabled) return;
+
+            document.querySelectorAll('#variantButtons .variant-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+
+            selectedVariant = btn.dataset.variant;
+            document.getElementById('variantName').textContent = selectedVariant;
+            document.getElementById('hiddenVariant').value = selectedVariant;
+
+            const warning = document.getElementById('variantWarning');
+            if (warning) warning.style.display = 'none';
+
+            const img = btn.querySelector('img');
+            if (img) { const mainImg = document.getElementById('mainImage'); if (mainImg) mainImg.src = img.src; }
+        }
+
+        function selectSize(btn) {
+            if (btn.disabled) return;
+
+            document.querySelectorAll('#sizeButtons .size-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+
+            selectedSize = btn.dataset.size;
+            document.getElementById('hiddenSize').value = selectedSize;
+
+            const warning = document.getElementById('sizeWarning');
+            if (warning) warning.style.display = 'none';
+        }
+
+        function addToBag(hasSizes, hasVariants) {
+            let valid = true;
+            if (hasVariants && !selectedVariant) {
+                document.getElementById('variantWarning').style.display = 'block';
+                valid = false;
+            }
+            if (hasSizes && !selectedSize) {
+                document.getElementById('sizeWarning').style.display = 'block';
+                valid = false;
+            }
+            if (!valid) return;
+            document.getElementById('cartForm').submit();
+        }
+    </script>
+}

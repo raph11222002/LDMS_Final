@@ -1,0 +1,149 @@
+@model LDMS_Final.ViewModels.SystemAdminDashboardViewModel
+@using LDMS_Final.Models
+@{
+    ViewData["Title"] = "System Admin Dashboard";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4">
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1 text-dark">System Admin Dashboard</h1>
+    </div>
+
+    <div class="row g-4 mb-4">
+
+        <div class="col-12 col-lg-4">
+            <a asp-controller="AdminAccounts" asp-action="Index" class="text-decoration-none">
+                <div class="dashboard-card dashboard-card--blue h-100">
+                    <div class="dashboard-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="dashboard-card-title">Admin Accounts</h5>
+                            <div class="dashboard-card-icon"><i class="bi bi-people-fill"></i></div>
+                        </div>
+                        <div class="dashboard-card-number">@Model.AdminCount</div>
+                        <p class="dashboard-card-desc">Click to manage all admin accounts created by the super admin.
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="dashboard-card dashboard-card--teal h-100">
+                <div class="dashboard-card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="dashboard-card-title">Buyer Accounts</h5>
+                        <div class="dashboard-card-icon"><i class="bi bi-person-badge-fill"></i></div>
+                    </div>
+                    <div class="dashboard-card-number">@Model.BuyerCount</div>
+                    <p class="dashboard-card-desc">Registered buyer accounts in the system.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <a asp-controller="Dashboard" asp-action="UserLogs" class="text-decoration-none">
+                <div class="dashboard-card dashboard-card--indigo h-100">
+                    <div class="dashboard-card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="dashboard-card-title">Actions Today</h5>
+                            <div class="dashboard-card-icon"><i class="bi bi-activity"></i></div>
+                        </div>
+                        <div class="dashboard-card-number">@Model.TotalLogsToday</div>
+                        <p class="dashboard-card-desc">Actions recorded today. Click to view full logs.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Recent activity -->
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
+            <h6 class="fw-bold mb-0">
+                <i class="bi bi-clock-history me-2 text-primary"></i>Recent Activity
+            </h6>
+            <a asp-action="UserLogs" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                View All Logs
+            </a>
+        </div>
+        <div class="card-body px-4 py-3">
+            @if (!Model.RecentActivity.Any())
+            {
+                <p class="text-dark mb-0 small">No activity recorded yet.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">User</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                                <th>Description</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in Model.RecentActivity)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-semibold small">@log.FullName</div>
+                                        <div class="text-dark" style="font-size:.7rem;">@@@log.UserName</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill @RoleBadge(log.Role)" style="font-size:.68rem;">
+                                            @log.Role
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill @ActionBadge(log.Action)" style="font-size:.68rem;">
+                                            @log.Action
+                                        </span>
+                                    </td>
+                                    <td class="text-dark small"
+                                        style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        @log.Description
+                                    </td>
+                                    <td class="text-dark text-nowrap" style="font-size:.72rem;">
+                                        @log.CreatedAt.ToLocalTime().ToString("MMM d, h:mm tt")
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@functions {
+    static string RoleBadge(string role) => role switch
+    {
+        "Admin" => "bg-primary",
+        "SuperAdmin" => "bg-danger",
+        "LogisticStaff" => "bg-info text-dark",
+        "WarehouseStaff" => "bg-warning text-dark",
+        "Driver" => "bg-secondary",
+        "Buyer" => "bg-success",
+        _ => "bg-light text-dark border"
+    };
+    static string ActionBadge(string action) => action switch
+    {
+        UserAction.OrderApproved => "bg-success",
+        UserAction.OrderPlaced => "bg-primary",
+        UserAction.OrderCancelled => "bg-danger",
+        UserAction.RouteAssigned => "bg-info text-dark",
+        UserAction.DriverAssigned => "bg-info text-dark",
+        UserAction.ProductCreated or
+        UserAction.ProductUpdated => "bg-secondary",
+        UserAction.AccountCreated => "bg-dark",
+        UserAction.AccountDeleted => "bg-danger",
+        UserAction.AccountToggled => "bg-warning text-dark",
+        _ => "bg-light text-dark border"
+    };
+}

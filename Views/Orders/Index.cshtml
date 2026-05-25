@@ -1,0 +1,71 @@
+@model IEnumerable<LDMS_Final.ViewModels.BuyerOrderListViewModel>
+@{
+    ViewData["Title"] = "My Orders";
+    Layout = "_Layout";
+    var currentStatus = ViewBag.CurrentStatus as string;
+}
+
+<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+    <div class="mb-4">
+        <h1 class="fw-bold mb-1" style="color:#111;">My Orders</h1>
+    </div>
+
+    <!-- Status Tabs -->
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+        @foreach (var tab in new[]
+        {
+            (null as string, "All"),
+            ("Pending", "Pending"),
+            ("ReadyForPickup", "To Ship"),
+            ("OutForDelivery", "To Receive"),
+            ("Completed", "Completed")
+        })
+        {
+            <a asp-action="Index" asp-route-status="@tab.Item1"
+               class="btn rounded-pill px-4 @(currentStatus == tab.Item1 ? "btn-dark" : "btn-outline-secondary")">
+                @tab.Item2
+            </a>
+        }
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5 text-dark">
+            <i class="bi bi-bag-x display-4 d-block mb-3 opacity-75"></i>
+            <p class="mb-0">No orders found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column gap-3">
+            @foreach (var order in Model)
+            {
+                <div class="card border-0 rounded-4 shadow-lg" style="cursor:pointer;"
+                     onclick="window.location='@Url.Action("Detail", new { id = order.OrderId })'">
+                    <div class="card-body p-3">
+                        <div class="d-flex align-items-center gap-3">
+                            @if (!string.IsNullOrEmpty(order.FirstProductImage))
+                            {
+                                <img src="@order.FirstProductImage"
+                                     style="width:64px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;" />
+                            }
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="fw-bold" style="color:#111;">@order.OrderNumber</div>
+                                    <span
+                                        class="badge rounded-pill px-3 @(order.Status == "Completed" ? "bg-success" : order.Status == "Pending" ? "bg-warning text-dark" : "bg-primary")">
+                                        @order.Status
+                                    </span>
+                                </div>
+                                <div class="text-dark small">@order.ItemCount item(s) &nbsp;|&nbsp; @order.PaymentMethod</div>
+                                <div class="fw-bold mt-1">₱@order.TotalAmount.ToString("N2")</div>
+                                <div class="text-dark small">@order.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

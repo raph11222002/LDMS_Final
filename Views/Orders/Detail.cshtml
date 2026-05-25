@@ -1,0 +1,180 @@
+@model LDMS_Final.ViewModels.BuyerOrderDetailViewModel
+@{
+    ViewData["Title"] = $"Order {Model.OrderNumber}";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i> Back to Orders
+        </a>
+        <h1 class="fw-bold mb-1 mt-2" style="color:#111;">Order Receipt</h1>
+        <p class="text-dark mb-0">@Model.OrderNumber</p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-7">
+
+            <!-- Status -->
+            <div class="card border-0 rounded-4 shadow-lg mb-4">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div>
+                            <div class="text-dark fw-semibold">Order Status: 
+                                <span class="badge rounded-pill fs-6
+                                    @(Model.Status == "Completed" ? "bg-success" :
+                                          Model.Status == "Pending" ? "bg-warning text-dark" :
+                                          Model.Status == "ReadyForPickup" ? "bg-info" : "bg-primary")">
+                                    @Model.Status
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ms-auto text-end">
+                            <div class="text-dark small">Placed on</div>
+                            <div class="fw-semibold small">@Model.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items -->
+            <div class="card border-0 rounded-4 shadow-lg mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Items Ordered</h6>
+                    @foreach (var item in Model.Items)
+                    {
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            @if (!string.IsNullOrEmpty(item.ImagePath))
+                            {
+                                <img src="@item.ImagePath"
+                                     style="width:60px;height:68px;object-fit:cover;border-radius:8px;flex-shrink:0;" />
+                            }
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold" style="color:#111;">@item.ProductName</div>
+                                <div class="text-dark small">
+                                    @item.VariantName @(item.SelectedSize != null ? $"/ {item.SelectedSize}" : "")
+                                </div>
+                                <div class="small">₱@item.UnitPrice.ToString("N2") × @item.Quantity</div>
+                            </div>
+                            <div class="fw-bold flex-shrink-0">₱@item.Subtotal.ToString("N2")</div>
+                        </div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>Total</span>
+                        <span>₱@Model.TotalAmount.ToString("N2")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <!-- Delivery Info -->
+            <div class="card border-0 rounded-4 shadow-lg mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Delivery Details</h6>
+                    <div class="mb-1"><span class="text-dark small">Name:</span> @Model.DeliveryFullName</div>
+                    <div class="mb-1"><span class="text-dark small">Contact:</span> @Model.DeliveryContactNumber</div>
+                    <div class="mb-1"><span class="text-dark small">Address:</span> @Model.DeliveryAddress</div>
+                    @if (!string.IsNullOrEmpty(Model.DeliveryNote))
+                    {
+                        <div class="mb-1"><span class="text-dark small">Note:</span> @Model.DeliveryNote</div>
+                    }
+                    <div class="mb-1"><span class="text-dark small">Payment:</span> @Model.PaymentMethod</div>
+
+                    @if (Model.DeliveryLatitude.HasValue && Model.DeliveryLongitude.HasValue)
+                    {
+                        <div class="mt-3">
+                            <div class="text-dark small mb-1">Pinned Location</div>
+                            <div id="orderMap" style="height:180px;border-radius:10px;"></div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-0 rounded-4 shadow-lg mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold mb-3">Order Status Timeline</h6>
+                    <style>
+                        .order-timeline { position: relative; padding-left: 2.5rem; }
+                        .order-timeline::before { content: ''; position: absolute; top: 1.5rem; left: 1rem; width: 3px; height: calc(100% - 1.5rem); background: #e9ecef; }
+                        .order-timeline-step { position: relative; padding-bottom: 1.5rem; }
+                        .order-timeline-step:last-child { padding-bottom: 0; }
+                        .order-timeline-icon { position: absolute; left: 0; top: 0.25rem; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+                        .order-timeline-icon.bg-complete { background: #198754; color: #fff; border-color: #198754; }
+                        .order-timeline-icon.bg-current { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+                        .order-timeline-icon.bg-pending { background: #ffc107; color: #212529; border-color: #ffc107; }
+                        .order-timeline-label { margin-left: 3.25rem; }
+                        .order-timeline-label .badge { font-size: 0.82rem; }
+                    </style>
+                    @if (Model.StatusHistory.Any())
+                    {
+                        Func<string,string> getStatusIcon = status => status switch
+                            {
+                                "Completed" => "bi-check-circle",
+                                "Pending" => "bi-hourglass-split",
+                                "ReadyForPickup" => "bi-box-seam",
+                                "Shipped" => "bi-truck",
+                                "OnTheWay" => "bi-truck-flatbed",
+                                "Delivered" => "bi-geo-alt-fill",
+                                "Cancelled" => "bi-x-circle",
+                                _ => "bi-box-seam"
+                            };
+                        <div class="order-timeline">
+                            @for (var i = 0; i < Model.StatusHistory.Count; i++)
+                            {
+                                var log = Model.StatusHistory[i];
+                                var isCurrent = string.Equals(log.Status, Model.Status, StringComparison.OrdinalIgnoreCase);
+                                var isComplete = i < Model.StatusHistory.Count - 1 || isCurrent;
+                                var iconClass = getStatusIcon(log.Status);
+                                var markerClass = isCurrent ? "bg-current" : isComplete ? "bg-complete" : "bg-pending";
+                                <div class="order-timeline-step">
+                                    <div class="order-timeline-icon @markerClass">
+                                        <i class="bi @iconClass"></i>
+                                    </div>
+                                    <div class="order-timeline-label">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge @(isCurrent ? "bg-primary" : "bg-secondary")">@log.Status</span>
+                                            <span class="text-muted small">@log.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy hh:mm tt")</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(log.Note))
+                                        {
+                                            <div class="text-dark small mt-1">@log.Note</div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-dark small">No status updates are available yet.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.DeliveryLatitude.HasValue && Model.DeliveryLongitude.HasValue)
+{
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+    @section Scripts {
+        <script>
+            mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+            const map = new mapboxgl.Map({
+            container: 'orderMap',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [@Model.DeliveryLongitude, @Model.DeliveryLatitude],
+            zoom: 15,
+            interactive: false
+            });
+            new mapboxgl.Marker({ color: '#e11d48' })
+            .setLngLat([@Model.DeliveryLongitude, @Model.DeliveryLatitude])
+            .addTo(map);
+        </script>
+    }
+}
