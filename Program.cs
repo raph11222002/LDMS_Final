@@ -77,7 +77,7 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-await IdentitySeeder.InitializeAsync(app);
+//await IdentitySeeder.InitializeAsync(app);
 
 app.MapControllers();
 
