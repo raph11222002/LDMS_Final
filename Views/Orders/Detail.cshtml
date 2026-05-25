@@ -163,8 +163,10 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
 
     @section Scripts {
+        @inject IConfiguration Configuration
+
         <script>
-            mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+            mapboxgl.accessToken = "@Configuration["Mapbox:AccessToken"]";
             const map = new mapboxgl.Map({
             container: 'orderMap',
             style: 'mapbox://styles/mapbox/streets-v12',
