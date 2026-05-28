@@ -14,15 +14,18 @@ namespace LDMS_Final.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly OrderService _orderService;
+        private readonly UserActivityService _activity;
 
         public WarehouseOrderController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            OrderService orderService)
+            OrderService orderService,
+            UserActivityService activity)
         {
             _context     = context;
             _userManager = userManager;
             _orderService = orderService;
+            _activity = activity;
         }
 
         private async Task<string?> GetParentAdminIdAsync()
@@ -193,6 +196,11 @@ namespace LDMS_Final.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            await _activity.LogAsync(user!.Id, UserAction.OrderApproved,
+                $"Order {order.OrderNumber} approved by warehouse staff.",
+                "Order", order.OrderNumber);
+                
             TempData["Success"] = $"Order {order.OrderNumber} approved. Main logistic staff notified.";
             return RedirectToAction(nameof(Index));
         }
@@ -225,6 +233,18 @@ namespace LDMS_Final.Controllers
             });
 
             await _context.SaveChangesAsync();
+
+            var logAction = status switch
+            {
+                OrderStatus.Approved => UserAction.OrderApproved,
+                OrderStatus.Cancelled => UserAction.OrderCancelled,
+                _ => status   // fallback: use the status string itself
+            };
+
+            await _activity.LogAsync(user!.Id, logAction,
+                $"Order {order.OrderNumber} status updated to {status}.",
+                "Order", order.OrderNumber);
+
             TempData["Success"] = $"Order {order.OrderNumber} updated to {status}.";
             return RedirectToAction(nameof(Detail), new { id = orderId });
         }

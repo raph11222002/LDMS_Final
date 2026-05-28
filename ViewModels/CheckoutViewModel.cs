@@ -74,6 +74,7 @@ namespace LDMS_Final.ViewModels
         public string Status { get; set; } = string.Empty;
         public string PaymentMethod { get; set; } = string.Empty;
         public decimal TotalAmount { get; set; }
+        public decimal ShippingFee { get; set; }
         public string DeliveryFullName { get; set; } = string.Empty;
         public string DeliveryContactNumber { get; set; } = string.Empty;
         public string DeliveryAddress { get; set; } = string.Empty;

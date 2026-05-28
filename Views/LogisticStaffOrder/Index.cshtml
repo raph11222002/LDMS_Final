@@ -4,6 +4,8 @@
     ViewData["Title"] = "Orders";
     Layout = "_Layout";
     bool isMain = (bool)(ViewBag.IsMainLStaff ?? false);
+
+    var currentStaffId = ViewBag.CurrentStaffId as string ?? string.Empty;
 }
 
 <div class="container-fluid py-4 px-4">
@@ -116,13 +118,15 @@
                                     }
                                     else if (order.Status == OrderStatus.Approved && isMain)
                                     {
-                                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill">
+                                        <span class="badge bg-warning-subtle text-black border border-warning-subtle rounded-pill">
                                             <i class="bi bi-exclamation-circle me-1"></i>Needs Route
                                         </span>
                                     }
                                     else
                                     {
-                                        <span class="text-dark small">—</span>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">
+                                            <i class="bi bi-x-circle me-1"></i>Not Assign Yet
+                                        </span>
                                     }
                                 </td>
                                 <td class="text-dark small">@order.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</td>

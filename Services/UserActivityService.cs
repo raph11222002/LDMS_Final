@@ -62,6 +62,27 @@ namespace LDMS_Final.Services
             await _context.SaveChangesAsync();
         }
 
+        // ── Overload: when you only have the userId string ────────────────────
+        public async Task LogAsync(
+            string userId,
+            string action,
+            string? description = null,
+            string? entityType = null,
+            string? entityId = null)
+        {
+            var appUser = await _userManager.FindByIdAsync(userId);
+            if (appUser == null) return;
+
+            var roles = await _userManager.GetRolesAsync(appUser);
+            var role = roles.FirstOrDefault() ?? "Unknown";
+
+            Write(appUser.Id, appUser.UserName ?? string.Empty,
+                  appUser.FullName, role,
+                  action, description, entityType, entityId);
+
+            await _context.SaveChangesAsync();
+        }
+
         // ── Internal writer ───────────────────────────────────────────────
         private void Write(
             string userId, string userName, string fullName, string role,

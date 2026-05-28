@@ -1,0 +1,470 @@
+@model LDMS_Final.ViewModels.DriverOrderDetailViewModel
+@using LDMS_Final.Models
+@using System.Globalization
+@{
+    ViewData["Title"] = $"Order {Model.Order.OrderNumber}";
+    Layout = "_Layout";
+
+    var order = Model.Order;
+    var stop = Model.MyStop;
+    var isMoto = Model.IsMotoDriver;
+    var isDelivered = order.Status == OrderStatus.Delivered;
+}
+
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+<style>
+    #nav-map {
+    height: 340px;
+    border-radius: 12px;
+    transition: all .3s ease;
+    }
+
+    /* Fullscreen map overlay */
+    #mapCard.map-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    overflow: hidden;
+    }
+
+    #mapCard.map-fullscreen .card-body {
+    padding: 0 !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    }
+
+    #mapCard.map-fullscreen .d-flex.align-items-center.justify-content-between {
+    padding: 10px 14px !important;
+    background: rgba(255, 255, 255, 0.95);
+    flex-shrink: 0 !important;
+    height: 50px !important;
+    }
+
+    #mapCard.map-fullscreen #nav-map {
+    flex: 1 1 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    }
+
+    #mapCard.map-fullscreen #navControls {
+    padding: 10px 14px !important;
+    background: rgba(255, 255, 255, 0.95);
+    border-top: 1px solid #dee2e6;
+    flex-shrink: 0 !important;
+    height: 60px !important;
+    }
+
+    #mapCard.map-fullscreen #locationError {
+    margin: 8px 14px !important;
+    }
+
+    #fullscreenBtn i {
+    transition: .2s;
+    }
+
+    .tl-dot {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 3px;
+    }
+
+    .tl-line {
+    width: 2px;
+    background: #dee2e6;
+    flex-grow: 1;
+    min-height: 18px;
+    margin: 3px auto;
+    }
+
+    .proof-img {
+    width: 100%;
+    max-height: 300px;
+    object-fit: cover;
+    border-radius: 12px;
+    }
+
+    .route-snap {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid #dee2e6;
+    }
+
+    /* Navigation controls */
+    #navControls .btn {
+    font-size: .85rem;
+    }
+</style>
+
+<div class="container py-4 px-3" style="max-width: 600px;">
+
+    <!-- Back -->
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+        <h1 class="text-dark fw-bold mt-2 mb-0 fs-4">@order.OrderNumber</h1>
+        <span class="badge rounded-pill mt-1
+            @(order.Status == OrderStatus.Delivered ? "bg-success" :
+                order.Status == OrderStatus.OutForDelivery ? "bg-primary" :
+                order.Status == OrderStatus.InTransit ? "bg-info text-dark" : "bg-secondary")">
+            @order.Status
+        </span>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 small mb-3">
+            <i class="bi bi-check-circle me-2"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- ── NAVIGATION MAP (moto + InTransit only) ── -->
+    @if (isMoto && stop.StopStatus == HubStopStatus.InTransit && Model.DestLat.HasValue)
+    {
+        <div class="card rounded-4 shadow-lg mb-4 position-relative" id="mapCard">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <h6 class="fw-semibold mb-0">
+                        <i class="bi bi-compass me-2 text-primary"></i>Navigation
+                        <span class="badge bg-success ms-1 small">Live</span>
+                    </h6>
+                    <button id="fullscreenBtn" class="btn btn-sm btn-outline-secondary rounded-pill px-2"
+                            onclick="toggleMapFullscreen()" title="Toggle fullscreen">
+                        <i class="bi bi-fullscreen" id="fullscreenIcon"></i>
+                    </button>
+                </div>
+
+                <div id="nav-map" class="mb-3"></div>
+
+                <div id="navControls" class="d-flex gap-2">
+                    <button id="centerRiderBtn" class="btn btn-sm btn-outline-dark rounded-pill flex-fill">
+                        <i class="bi bi-crosshair me-1"></i>My Location
+                    </button>
+                    <button id="centerDestBtn" class="btn btn-sm btn-outline-danger rounded-pill flex-fill">
+                        <i class="bi bi-house me-1"></i>Destination
+                    </button>
+                    <button id="fitAllBtn" class="btn btn-sm btn-outline-secondary rounded-pill flex-fill">
+                        <i class="bi bi-aspect-ratio me-1"></i>Fit All
+                    </button>
+                </div>
+
+                <div id="locationError" class="alert alert-warning rounded-3 small mt-2 d-none">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Location access denied. Enable location in your browser to use navigation.
+                </div>
+            </div>
+        </div>
+    }
+
+
+    <!-- ── ORDER DETAILS ── -->
+    <div class="card rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-box-seam me-2 text-primary"></i>Order Details
+            </h6>
+            <div class="row g-2 small">
+                <div class="col-6">
+                    <div class="text-dark">Buyer</div>
+                    <div class="fw-semibold">@order.Buyer?.FullName</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-dark">Contact</div>
+                    <div class="fw-semibold">@order.DeliveryContactNumber</div>
+                </div>
+                <div class="col-6">
+                    <div class="text-dark">Payment</div>
+                    <span class="badge bg-dark rounded-pill">@order.PaymentMethod</span>
+                </div>
+                <div class="col-6">
+                    <div class="text-dark">Total</div>
+                    <div class="fw-bold">₱@order.TotalAmount.ToString("N2")</div>
+                </div>
+                <div class="col-12">
+                    <div class="text-dark">Delivery Address</div>
+                    <div class="fw-semibold">@order.DeliveryAddress</div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(order.DeliveryNote))
+                {
+                    <div class="col-12">
+                        <div class="text-dark">Note</div>
+                        <div>@order.DeliveryNote</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ── ITEMS ── -->
+    <div class="card rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-bag me-2 text-primary"></i>Items
+            </h6>
+            @foreach (var item in order.Items)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom small">
+                    <div>
+                        <span class="fw-semibold">@item.Product?.Name</span>
+                        <span class="text-dark ms-1">x @item.Quantity</span>
+                    </div>
+                    <span>₱@((item.UnitPrice * item.Quantity).ToString("N2"))</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- ── DELIVERY REPORT (completed) ── -->
+    @if (isDelivered && isMoto && Model.DeliveryReport != null)
+    {
+        <div class="card rounded-4 shadow-lg mb-4">
+            <div class="card-body p-4">
+                <h6 class="fw-semibold mb-3">
+                    <i class="bi bi-camera me-2 text-success"></i>Delivery Report
+                </h6>
+
+                <div class="small text-dark mb-1">Delivered at</div>
+                <div class="fw-semibold small mb-3">
+                    @Model.DeliveryReport.DeliveredAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Model.DeliveryReport.Notes))
+                {
+                    <div class="small text-dark mb-1">Notes</div>
+                    <div class="small mb-3">@Model.DeliveryReport.Notes</div>
+                }
+
+                <div class="small text-dark mb-2">Proof Photo</div>
+                <img src="@Model.DeliveryReport.PhotoPath" class="proof-img mb-3" alt="Delivery proof photo" />
+
+                @if (Model.StaticRouteMapUrl != null)
+                {
+                    <div class="small text-dark mb-2">
+                        <i class="bi bi-map me-1"></i>Route — @Model.LastHubLabel → Buyer
+                    </div>
+                    <img src="@Model.StaticRouteMapUrl" class="route-snap" alt="Delivery route map" />
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ── STATUS HISTORY ── -->
+    <div class="card rounded-4 shadow-lg">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-clock-history me-2 text-primary"></i>Status History
+            </h6>
+            @{
+                var logs = order.StatusLogs.OrderByDescending(l => l.CreatedAt).ToList();
+            }
+            @if (!logs.Any())
+            {
+                <p class="text-dark small mb-0">No history yet.</p>
+            }
+            @foreach (var log in logs)
+            {
+                <div class="d-flex gap-3 mb-3">
+                    <div class="d-flex flex-column align-items-center" style="width:16px;">
+                        <div class="tl-dot" style="background:@(log.Status == OrderStatus.Delivered ? "#198754" :
+                                                                              log.Status == OrderStatus.Cancelled ? "#dc3545" :
+                                                                              log.Status.Contains("transit") ? "#0dcaf0" :
+                                                                              log.Status == "Order processed" ? "#6f42c1" : "#ffc107")">
+                        </div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small">@log.Status</div>
+                        @if (!string.IsNullOrWhiteSpace(log.Note))
+                        {
+                            <div class="text-dark small">@log.Note</div>
+                        }
+                        <div class="text-dark" style="font-size:.72rem;">
+                            @log.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mb-5"></div>
+
+</div>
+
+@if (isMoto && stop.StopStatus == HubStopStatus.InTransit && Model.DestLat.HasValue)
+{
+    @section Scripts {
+        <script>
+            mapboxgl.accessToken = '@Model.MapboxToken';
+
+            const DEST_LNG = @Model.DestLng!.Value.ToString("F7", CultureInfo.InvariantCulture);
+            const DEST_LAT = @Model.DestLat!.Value.ToString("F7", CultureInfo.InvariantCulture);
+            const HUB_LNG = @Model.LastHubLng.ToString("F7", CultureInfo.InvariantCulture);
+            const HUB_LAT = @Model.LastHubLat.ToString("F7", CultureInfo.InvariantCulture);
+
+            const map = new mapboxgl.Map({
+            container: 'nav-map',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [DEST_LNG, DEST_LAT],
+            zoom: 13
+            });
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+            // ── Destination marker (red house) ──
+            const destEl = Object.assign(document.createElement('div'), {
+            innerHTML: '<i class="bi bi-house-fill" style="font-size:26px;color:#e53935;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))"></i>'
+            });
+            const destMarker = new mapboxgl.Marker({ element: destEl, anchor: 'bottom' })
+            .setLngLat([DEST_LNG, DEST_LAT])
+            .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML('<strong>Delivery Destination</strong><br>@Html.Raw(Model.DestAddress?.Replace("'", "\\'"))'))
+            .addTo(map);
+
+            // ── Rider marker (blue dot) ──
+            const riderEl = Object.assign(document.createElement('div'), {
+            innerHTML: '<div style="width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 3px rgba(26,115,232,.35);"></div>'
+            });
+            let riderMarker = null;
+            let riderLng = null, riderLat = null;
+
+            // ── Route line ──
+            async function drawRoute(fromLng, fromLat) {
+            const url = `https://api.mapbox.com/directions/v5/mapbox/driving/` +
+            `${fromLng},${fromLat};${DEST_LNG},${DEST_LAT}` +
+            `?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+            try {
+            const res = await fetch(url);
+            const data = await res.json();
+            const geom = data.routes?.[0]?.geometry;
+            if (!geom) return;
+
+            const geojson = { type: 'Feature', geometry: geom };
+            const src = map.getSource('rider-route');
+            if (src) {
+            src.setData(geojson);
+            } else {
+            map.addSource('rider-route', { type: 'geojson', data: geojson });
+            map.addLayer({
+            id: 'rider-route-casing',
+            type: 'line', source: 'rider-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#fff', 'line-width': 7, 'line-opacity': .4 }
+            });
+            map.addLayer({
+            id: 'rider-route',
+            type: 'line', source: 'rider-route',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#1a73e8', 'line-width': 5, 'line-opacity': .9 }
+            });
+            }
+            } catch (e) { console.warn('Route fetch failed', e); }
+            }
+
+            let lastRouteLng = null, lastRouteLat = null;
+
+            // ── Geolocation ──
+            function onPosition(pos) {
+            riderLng = pos.coords.longitude;
+            riderLat = pos.coords.latitude;
+
+            if (!riderMarker) {
+            lastRouteLng = riderLng;
+            lastRouteLat = riderLat;
+
+            riderMarker = new mapboxgl.Marker({ element: riderEl, anchor: 'center' })
+            .setLngLat([riderLng, riderLat])
+            .addTo(map);
+            const bounds = new mapboxgl.LngLatBounds()
+            .extend([riderLng, riderLat])
+            .extend([DEST_LNG, DEST_LAT]);
+            map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+            if (map.loaded()) drawRoute(riderLng, riderLat);
+            else map.on('load', () => drawRoute(riderLng, riderLat));
+            } else {
+            riderMarker.setLngLat([riderLng, riderLat]);
+
+            // ✅ Only redraw route if moved more than ~50 meters
+            const dx = riderLng - lastRouteLng;
+            const dy = riderLat - lastRouteLat;
+            const movedEnough = Math.sqrt(dx * dx + dy * dy) > 0.0002;
+            if (movedEnough) {
+            lastRouteLng = riderLng;
+            lastRouteLat = riderLat;
+            drawRoute(riderLng, riderLat);
+            }
+            }
+
+            document.getElementById('locationError').classList.add('d-none');
+            }
+
+            function onGeoError() {
+            document.getElementById('locationError').classList.remove('d-none');
+            }
+
+            // Watch position continuously
+            let watchId = null;
+            if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(onPosition, onGeoError, {
+            enableHighAccuracy: true,
+            maximumAge: 5000,
+            timeout: 10000
+            });
+            } else {
+            onGeoError();
+            }
+
+            // ── Control buttons ──
+            document.getElementById('centerRiderBtn').addEventListener('click', () => {
+            if (riderLng !== null) map.flyTo({ center: [riderLng, riderLat], zoom: 15 });
+            });
+            document.getElementById('centerDestBtn').addEventListener('click', () => {
+            map.flyTo({ center: [DEST_LNG, DEST_LAT], zoom: 15 });
+            });
+            document.getElementById('fitAllBtn').addEventListener('click', () => {
+            const bounds = new mapboxgl.LngLatBounds().extend([DEST_LNG, DEST_LAT]);
+            if (riderLng !== null) bounds.extend([riderLng, riderLat]);
+            map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+            });
+
+            // Stop watching when user leaves the page
+            window.addEventListener('beforeunload', () => {
+            if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+            });
+
+            // ── Fullscreen toggle ──
+            let isFullscreen = false;
+
+            function toggleMapFullscreen() {
+            const card = document.getElementById('mapCard');
+            const topIcon = document.getElementById('fullscreenIcon');
+            const sidebar = document.querySelector('.sidebar');
+            const contentArea = document.querySelector('.content-area');
+
+            isFullscreen = !isFullscreen;
+            card.classList.toggle('map-fullscreen', isFullscreen);
+
+            topIcon.className = isFullscreen ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen';
+            document.body.style.overflow = isFullscreen ? 'hidden' : '';
+
+            if (sidebar) sidebar.style.zIndex = isFullscreen ? '1' : '';
+            if (contentArea) contentArea.style.zIndex = isFullscreen ? '1' : '';
+
+            setTimeout(() => map.resize(), 350);
+            }
+        </script>
+    }
+}

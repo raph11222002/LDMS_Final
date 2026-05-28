@@ -52,15 +52,15 @@ namespace LDMS_Final.Models
 
         // ── Buyer-visible In-Transit scan notes ───────────────────────────
         public static string ScanLeftWarehouse(string driverLabel)
-            => $"Package left the Warehouse in Davao City. (Scanned by {driverLabel})";
+            => $"Package left the Warehouse in Davao City.";
 
         public static string ScanArrivedHub(string hubLabel, string driverLabel)
-            => $"Package arrived at {hubLabel}. (Scanned by {driverLabel})";
+            => $"Package arrived at {hubLabel}.";
 
         public static string ScanLeftHub(string hubLabel, string driverLabel)
-            => $"Package left the {hubLabel}. (Scanned by {driverLabel})";
+            => $"Package left the {hubLabel}.";
 
         public static string ScanOutForDelivery(string driverLabel)
-            => $"Package is out for delivery. (Scanned by {driverLabel})";
+            => $"Package is out for delivery. (Rider: {driverLabel})";
     }
 }

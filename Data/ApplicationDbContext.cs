@@ -22,6 +22,7 @@ namespace LDMS_Final.Data
         public DbSet<OrderHubStop>         OrderHubStops         { get; set; }
         public DbSet<DriverVehicle> DriverVehicles { get; set; }
         public DbSet<UserActivityLog> UserActivityLogs { get; set; }
+        public DbSet<RiderDeliveredReport> RiderDeliveredReports { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

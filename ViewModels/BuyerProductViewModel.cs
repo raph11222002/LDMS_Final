@@ -40,6 +40,7 @@ namespace LDMS_Final.ViewModels
         public string? ImagePath5 { get; set; }
         public List<BuyerVariantViewModel> Variants { get; set; } = new();
         public List<BuyerSizeViewModel> SizeOptions { get; set; } = new();
+        public List<BuyerStockViewModel> Stocks { get; set; } = new();
     }
 
     public class BuyerVariantViewModel
@@ -58,5 +59,12 @@ namespace LDMS_Final.ViewModels
     public class BuyerFavoritesViewModel
     {
         public List<BuyerProductCardViewModel> Favorites { get; set; } = new();
+    }
+
+    public class BuyerStockViewModel
+    {
+        public string? VariantName { get; set; }
+        public string? SelectedSize { get; set; }
+        public int Stock { get; set; }
     }
 }

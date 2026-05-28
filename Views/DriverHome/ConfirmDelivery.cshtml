@@ -1,0 +1,164 @@
+@{
+    ViewData["Title"] = "Confirm Delivery";
+    Layout = "_Layout";
+
+    var stop = ViewBag.Stop as LDMS_Final.Models.OrderHubStop;
+    var orderNumber = ViewBag.OrderNumber as string;
+}
+
+<style>
+    .preview-img {
+        width: 100%;
+        max-height: 280px;
+        object-fit: cover;
+        border-radius: 12px;
+        display: none;
+    }
+
+    .upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: .2s ease;
+        background: #f8f9fa;
+    }
+
+    .upload-area:hover {
+        border-color: #0d6efd;
+        background: #f0f6ff;
+    }
+
+    .upload-area.has-photo {
+        border-color: #198754;
+        background: #f0fff4;
+    }
+</style>
+
+<div class="container py-4 px-4" style="max-width:520px;">
+
+    <div class="mb-4">
+        <a asp-action="Index" class="text-decoration-none text-dark">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+        <h1 class="text-dark fw-bold mt-2 mb-0">Confirm Delivery</h1>
+        <p class="text-dark small">Take a photo of the parcel at the buyer's location to complete delivery.</p>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-3 small">
+            <i class="bi bi-exclamation-circle me-2"></i>@TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Order Info -->
+    <div class="card rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-box-seam me-2 text-primary"></i>Order Details
+            </h6>
+            <div class="mb-2">
+                <small class="text-dark">Order Number</small>
+                <div class="fw-bold">@orderNumber</div>
+            </div>
+            <div class="mb-2">
+                <small class="text-dark">Delivery Address</small>
+                <div class="fw-semibold small">
+                    @(stop?.RouteAssignment?.ResolvedAddress ?? "—")
+                </div>
+            </div>
+            <div>
+                <small class="text-dark">Buyer</small>
+                <div class="fw-semibold">@ViewBag.BuyerName</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Photo Upload Form -->
+    <div class="card rounded-4 shadow-lg mb-4">
+        <div class="card-body p-4">
+            <h6 class="fw-semibold mb-3">
+                <i class="bi bi-camera me-2 text-success"></i>Proof of Delivery Photo
+            </h6>
+
+            <form method="post"
+                  asp-action="ConfirmDelivery"
+                  asp-controller="DriverHome"
+                  enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="stopId" value="@stop?.Id" />
+
+                <!-- Upload area -->
+                <div class="upload-area mb-3" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+                    <i class="bi bi-camera fs-2 text-dark d-block mb-2" id="uploadIcon"></i>
+                    <div class="fw-semibold small" id="uploadText">Tap to take photo or upload</div>
+                    <small class="text-dark" id="uploadSub">JPG, PNG accepted</small>
+                </div>
+
+                <!-- Preview -->
+                <img id="photoPreview" class="preview-img mb-3" alt="Delivery photo preview" />
+
+                <input type="file" id="photoInput" name="photo"
+                       accept="image/*" capture="environment"
+                       class="d-none" required />
+
+                <!-- Notes -->
+                <div class="mb-4">
+                    <label class="form-label small fw-semibold">Notes <span class="text-dark fw-normal">(optional)</span></label>
+                    <textarea name="notes" class="form-control rounded-3" rows="2"
+                              placeholder="e.g. Left at door, handed to guard…"></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-success rounded-pill w-100 py-2 fw-semibold" id="submitBtn" disabled>
+                    <i class="bi bi-check-circle me-2"></i>Confirm Delivery
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Warning note -->
+    <div class="card rounded-4 bg-warning bg-opacity-10 border-warning mb-4" style="border: 1px solid !important;">
+        <div class="card-body p-3">
+            <small class="text-dark">
+                <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+                Make sure the photo clearly shows the parcel at the correct location.
+                This cannot be undone once submitted.
+            </small>
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+<script>
+    const photoInput  = document.getElementById('photoInput');
+    const preview     = document.getElementById('photoPreview');
+    const uploadArea  = document.getElementById('uploadArea');
+    const uploadIcon  = document.getElementById('uploadIcon');
+    const uploadText  = document.getElementById('uploadText');
+    const uploadSub   = document.getElementById('uploadSub');
+    const submitBtn   = document.getElementById('submitBtn');
+
+    photoInput.addEventListener('change', () => {
+        const file = photoInput.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+
+            uploadArea.classList.add('has-photo');
+            uploadIcon.className = 'bi bi-check-circle fs-2 text-success d-block mb-2';
+            uploadText.textContent = file.name;
+            uploadSub.textContent  = 'Tap to change photo';
+
+            submitBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    });
+</script>
+}

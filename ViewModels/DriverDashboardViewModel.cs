@@ -11,5 +11,6 @@ namespace LDMS_Final.ViewModels
         public int InTransitCount { get; set; }
         public int CompletedCount { get; set; }
         public int PendingCount { get; set; }
+        public string CurrentDriverId { get; set; } = string.Empty;
     }
 }

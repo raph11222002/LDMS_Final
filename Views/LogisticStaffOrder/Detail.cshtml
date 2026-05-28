@@ -29,6 +29,8 @@
         .OrderBy(s => s.StopOrder)
         .ToDictionary(s => s.StopOrder, s => s.AssignedDriverId ?? "")
         ?? new Dictionary<int, string>();
+
+    var motoStop = route?.HubStops.FirstOrDefault(s => s.DriverLabel == "motorcycle driver");
 }
 
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
@@ -92,7 +94,7 @@
         </div>
     }
 
-    <div class="row g-4">
+    <div class="row g-4 mb-5">
 
         <!-- ═══════════════════════════════════════════
              LEFT COLUMN
@@ -100,7 +102,7 @@
         <div class="col-12 col-xl-6">
 
             <!-- Order Summary -->
-            <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card shadow-sm rounded-4 mb-3">
                 <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
                     <h6 class="fw-bold mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Order Details</h6>
                 </div>
@@ -149,7 +151,7 @@
             </div>
 
             <!-- Items -->
-            <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card shadow-sm rounded-4 mb-3">
                 <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
                     <h6 class="fw-bold mb-0"><i class="bi bi-bag me-2 text-primary"></i>Items</h6>
                 </div>
@@ -168,7 +170,7 @@
             </div>
 
             <!-- MAP -->
-            <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card shadow-sm rounded-4 mb-4">
                 <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
                     <h6 class="fw-bold mb-0"><i class="bi bi-map me-2 text-primary"></i>Delivery Route Map</h6>
                     <small class="text-dark" id="coordDisplay">
@@ -179,7 +181,7 @@
                     </small>
                 </div>
                 <div class="card-body px-4 py-3">
-                    @if (isMain)
+                        @if (isMain && route == null)
                     {
                         <div class="input-group mb-3">
                             <input type="text" id="addressSearch" class="form-control rounded-start-3"
@@ -208,70 +210,57 @@
                     }
                 </div>
             </div>
-
-            <!-- Status History -->
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
-                    <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Status History</h6>
-                </div>
-                <div class="card-body px-4 py-3">
-                    @{
-                        // Show ALL logs to logistic staff (including internal ones)
-                        var logs = order.StatusLogs.OrderByDescending(l => l.CreatedAt).ToList();
-                    }
-                    @if (!logs.Any())
-                    {
-                        <p class="text-dark mb-0">No history yet.</p>
-                    }
-                    @foreach (var log in logs)
-                    {
-                        <div class="d-flex gap-3 mb-3">
-                            <div class="d-flex flex-column align-items-center" style="width:18px;">
-                                <div class="tl-dot"
-                                     style="background:@(log.Status == OrderStatus.Delivered ? "#198754" :
-                                                         log.Status == OrderStatus.Cancelled ? "#dc3545" :
-                                                         log.Status.Contains("transit") ? "#0dcaf0" :
-                                                         log.Status == "Order processed"  ? "#6f42c1" : "#ffc107")">
-                                </div>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-semibold small d-flex align-items-center gap-2">
-                                    @log.Status
-                                    @if (!log.IsVisibleToBuyer)
-                                    {
-                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
-                                              style="font-size:.65rem;">Internal</span>
-                                    }
-                                </div>
-                                @if (!string.IsNullOrWhiteSpace(log.Note))
-                                {
-                                    <div class="text-dark small">@log.Note</div>
-                                }
-                                <div class="text-dark" style="font-size:.73rem;">
-                                    @log.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
-                                    @if (!string.IsNullOrWhiteSpace(log.UpdatedByName))
-                                    { <span class="ms-1">— @log.UpdatedByName</span> }
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </div>
-
         </div><!-- /left col -->
 
         <!-- ═══════════════════════════════════════════
              RIGHT COLUMN
         ═══════════════════════════════════════════ -->
         <div class="col-12 col-xl-6">
+                @if (!isMain && route != null)
+                {
+                    <div class="card shadow-sm rounded-4 mb-3">
+                        <div class="card-body px-4 py-4">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-geo-alt me-2 text-primary"></i>Your Hub Responsibility</h6>
+                            @{
+                                var myStop = route.HubStops
+                                    .FirstOrDefault(s => s.Hub == Model.CurrentStaffHub);
+                            }
+                            @if (myStop != null)
+                            {
+                                <p class="mb-2"><strong>Hub:</strong> @myStop.HubLabel</p>
+                                <p class="mb-2">
+                                    <strong>Incoming driver:</strong>
+                                    @(myStop.AssignedDriver?.FullName ?? "— Not yet assigned")
+                                </p>
+                                <p class="mb-0">
+                                    <strong>Status:</strong>
+                                    <span class="badge rounded-pill bg-info text-dark ms-1">@myStop.StopStatus</span>
+                                </p>
+                                @if (myStop.StopStatus == HubStopStatus.Arrived && order.Status != OrderStatus.Delivered)
+                                {
+                                    <div class="alert alert-warning rounded-3 mt-3 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        Parcel has arrived at your hub. Assign the next driver using the form in the route summary
+                                        above.
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-dark mb-0">This order does not pass through your hub.</p>
+                            }
+                        </div>
+                    </div>
+                }
 
             @* ── Existing route summary ── *@
             @if (route != null)
             {
-                <div class="card border-0 shadow-sm rounded-4 mb-4" id="routeSummaryCard">
+                <div class="card shadow-sm rounded-4 mb-3" id="routeSummaryCard">
                     <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
                         <h6 class="fw-bold mb-0"><i class="bi bi-diagram-3 me-2 text-success"></i>Assigned Route</h6>
-                        @if (isMain)
+
+                        @if (isMain && order.Status != OrderStatus.InTransit && order.Status != OrderStatus.Delivered && order.Status != OrderStatus.OutForDelivery)
                         {
                             <button class="btn btn-sm btn-outline-secondary rounded-pill" id="toggleReassignBtn">
                                 <i class="bi bi-pencil me-1"></i>Re-assign
@@ -291,7 +280,8 @@
                                 <small class="text-dark">Starting point</small>
                             </div>
                         </div>
-                        @foreach (var stop in route.HubStops.OrderBy(s => s.StopOrder))
+                        @foreach (var stop in route.HubStops.OrderBy(s => s.StopOrder)
+                            .Where(s => s.DriverLabel != "motorcycle driver"))
                         {
                             bool isLast = stop.StopOrder == route.HubStops.Count - 1;
                             <div class="d-flex align-items-start gap-3 mb-3">
@@ -318,7 +308,7 @@
                                         <span class="badge rounded-pill mt-1
                                             @(stop.StopStatus == HubStopStatus.Arrived ? "bg-success" :
                                                     stop.StopStatus == HubStopStatus.InTransit ? "bg-info text-dark" :
-                                                    stop.StopStatus == HubStopStatus.Completed ? "bg-secondary" : "bg-light text-dark border")">
+                                                    stop.StopStatus == HubStopStatus.Completed ? "bg-success" : "bg-light text-dark border")">
                                             @stop.StopStatus
                                         </span>
 
@@ -326,12 +316,13 @@
                                             var nextStop = route.HubStops.FirstOrDefault(s => s.StopOrder == stop.StopOrder + 1);
                                             bool isLastHub = nextStop == null;
 
-                                            var canReassign = !isMain
-                                                            && stop.Hub == Model.CurrentStaffHub
-                                                            && (stop.StopStatus == HubStopStatus.Arrived
-                                                            || stop.StopStatus == HubStopStatus.Completed)
-                                                            && (isLastHub
-                                                            || nextStop!.StopStatus == HubStopStatus.Pending);
+                                                var canReassign = !isMain
+                                                    && stop.Hub == Model.CurrentStaffHub
+                                                    && (stop.StopStatus == HubStopStatus.Arrived
+                                                    || stop.StopStatus == HubStopStatus.Completed)
+                                                    && stop.DriverLabel != "motorcycle driver"  // ← ADD THIS
+                                                    && (isLastHub
+                                                    || nextStop!.StopStatus == HubStopStatus.Pending);
 
                                             // Last hub checks OutgoingDriverId, others check nextStop.AssignedDriverId
                                             var hasNextDriver = isLastHub
@@ -386,12 +377,12 @@
                                             }
 
                                             <div class="reassign-wrap w-100">
-                                                <form asp-action="AssignNextDriver" method="post"
+                                                <form asp-action="AssignNextDriver" asp-controller="LogisticStaffOrder" method="post"
                                                     class="reassign-form mt-2 @(hasNextDriver ? "d-none" : "")"
                                                     id="reassignForm_@stop.Id">
 
                                                     @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="OrderId"   value="@order.Id" />
+                                                    <input type="hidden" name="OrderId" value="@order.Id" />
                                                     <input type="hidden" name="HubStopId" value="@stop.Id" />
 
                                                     @if (!driversForLeg.Any())
@@ -422,7 +413,7 @@
                                                             }
                                                         </select>
 
-                                                        <button class="btn btn-sm btn-dark rounded-pill px-3 flex-shrink-0"
+                                                        <button class="btn btn-sm btn-dark rounded-pill px-3 w-100"
                                                                 type="submit">
                                                             @(hasNextDriver ? "Update" : "Assign")
                                                         </button>
@@ -430,12 +421,12 @@
                                                         @if (hasNextDriver)
                                                         {
                                                             <button type="button"
-                                                                    class="btn btn-sm btn-outline-secondary rounded-pill px-2 flex-shrink-0"
+                                                                    class="btn btn-sm btn-outline-danger rounded-pill px-2 w-100"
                                                                     onclick="
                                                                         document.getElementById('reassignForm_@stop.Id').classList.add('d-none');
                                                                         document.getElementById('reassignToggle_@stop.Id').classList.remove('d-none');
                                                                     ">
-                                                                <i class="bi bi-x"></i>
+                                                                <i class="bi bi-x"> Cancel</i>
                                                             </button>
                                                         }
                                                     </div>
@@ -449,12 +440,71 @@
                         <!-- Destination -->
                         <div class="d-flex align-items-start gap-3">
                             <div class="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center"
-                                 style="width:22px;height:22px;font-size:.8rem;flex-shrink:0;">
+                                style="width:22px;height:22px;font-size:.8rem;flex-shrink:0;">
                                 <i class="bi bi-house-fill"></i>
                             </div>
                             <div>
                                 <div class="fw-semibold small">Delivery Destination</div>
-                                <small class="text-dark">@(route.ResolvedAddress ?? order.DeliveryAddress)</small>
+                                <small class="text-dark mt-0 mb-0">@(route.ResolvedAddress ?? order.DeliveryAddress)</small>
+
+                                @if (motoStop != null)
+                                {
+                                        <small class="text-dark d-block">
+                                            <i class="bi bi-bicycle me-1"></i>
+                                            @(motoStop.AssignedDriver?.FullName ?? "—")
+                                            <span class="badge bg-secondary ms-1">motorcycle driver</span>
+                                            <span class="badge rounded-pill ms-1
+                                                @(motoStop.StopStatus == HubStopStatus.Completed ? "bg-success" :
+                                                    motoStop.StopStatus == HubStopStatus.InTransit ? "bg-warning text-dark" :
+                                                    "bg-light text-dark border")">
+                                                    @(motoStop.StopStatus == HubStopStatus.Completed ? "Delivered" : motoStop.StopStatus.ToString())
+                                            </span>
+                                        </small>
+
+                                        @* Assign form — only if not yet completed and hub L-Staff *@
+                                        @if (!isMain
+                                            && motoStop.StopStatus == HubStopStatus.Pending
+                                            && route.HubStops.Any(s => s.Hub == Model.CurrentStaffHub
+                                            && s.StopStatus == HubStopStatus.Arrived))
+                                        {
+                                            <form asp-action="AssignNextDriver" asp-controller="LogisticStaffOrder"
+                                                method="post" class="mt-2">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="OrderId" value="@order.Id" />
+                                                <input type="hidden" name="HubStopId"
+                                                    value="@route.HubStops.First(s => s.Hub == Model.CurrentStaffHub).Id" />
+
+                                                @if (!Model.MotorcycleDrivers.Any())
+                                                {
+                                                    <div class="alert alert-warning rounded-3 mb-2 small py-2">
+                                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                                        No motorcycle drivers available at this hub.
+                                                    </div>
+                                                }
+
+                                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                                    <select name="AssignedDriverId" class="form-select form-select-sm" required>
+                                                        <option value="">— Assign Motorcycle Driver —</option>
+                                                        @foreach (var d in Model.MotorcycleDrivers)
+                                                        {
+                                                            <option value="@d.Id"
+                                                                    selected="@(motoStop.AssignedDriverId == d.Id)">
+                                                                @d.FullName
+                                                                @if (!string.IsNullOrEmpty(d.VehicleType))
+                                                                {
+                                                                    <text>(@d.VehicleType — @d.PlateNumber)</text>
+                                                                }
+                                                            </option>
+                                                        }
+                                                    </select>
+                                                    <button class="btn btn-sm btn-dark rounded-pill px-3 flex-shrink-0"
+                                                            type="submit">
+                                                        @(motoStop.AssignedDriverId != null ? "Update" : "Assign")
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        }
+                                }
                             </div>
                         </div>
                     </div>
@@ -465,7 +515,7 @@
             @if (isMain)
             {
                 <div id="assignPanel" class="@(route != null ? "d-none" : "")">
-                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card shadow-sm">
                         <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
                             <h6 class="fw-bold mb-0">
                                 <i class="bi bi-signpost-split me-2 text-primary"></i>
@@ -524,11 +574,10 @@
                                 <!-- Step 2: Driver per leg -->
                                 <div class="mb-4">
                                     <label class="form-label fw-semibold mb-2">
-                                        <span class="badge bg-primary rounded-pill me-2">2</span>Assign Drivers per Leg
+                                        <span class="badge bg-primary rounded-pill me-2">2</span>Assign Drivers for First Leg
                                     </label>
                                     <small class="text-dark d-block mb-3">
-                                        Assign a warehouse driver for <strong>each leg</strong> departing from the warehouse/hub.
-                                        All driver fields are required before confirming.
+                                        Assign a warehouse driver for <strong>first leg</strong> departing from the warehouse.
                                     </small>
                                     <div id="legRows">
                                         <!-- Built dynamically by JS -->
@@ -548,43 +597,107 @@
                     </div>
                 </div>
             }
-            else if (route != null)
-            {
-                <!-- Hub L-Staff info box -->
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-body px-4 py-4">
-                        <h6 class="fw-bold mb-3"><i class="bi bi-geo-alt me-2 text-primary"></i>Your Hub Responsibility</h6>
+
+                <!-- Status History -->
+                <div class="card shadow-sm rounded-4">
+                    <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+                        <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>Status History</h6>
+                    </div>
+                    <div class="card-body px-4 py-3">
                         @{
-                            var myStop = route.HubStops
-                                .FirstOrDefault(s => s.Hub == Model.CurrentStaffHub);
+                            var logs = order.StatusLogs.OrderByDescending(l => l.CreatedAt).ToList();
+                            var previewLogs = logs.Take(3).ToList();
                         }
-                        @if (myStop != null)
+                        @if (!logs.Any())
                         {
-                            <p class="mb-2"><strong>Hub:</strong> @myStop.HubLabel</p>
-                            <p class="mb-2">
-                                <strong>Incoming driver:</strong>
-                                @(myStop.AssignedDriver?.FullName ?? "— Not yet assigned")
-                            </p>
-                            <p class="mb-0">
-                                <strong>Status:</strong>
-                                <span class="badge rounded-pill bg-info text-dark ms-1">@myStop.StopStatus</span>
-                            </p>
-                            @if (myStop.StopStatus == HubStopStatus.Arrived)
+                            <p class="text-dark mb-0">No history yet.</p>
+                        }
+
+                        <div id="statusPreview">
+                            @foreach (var log in previewLogs)
                             {
-                                <div class="alert alert-warning rounded-3 mt-3 mb-0">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>
-                                    Parcel has arrived at your hub. Assign the next driver using the form in the route summary above.
+                                <div class="d-flex gap-3 mb-3">
+                                    <div class="d-flex flex-column align-items-center" style="width:18px;">
+                                        <div class="tl-dot" style="background:@(log.Status == OrderStatus.Delivered ? "#198754" :
+                                                                                              log.Status == OrderStatus.Cancelled ? "#dc3545" :
+                                                                                              log.Status.Contains("transit") ? "#0dcaf0" :
+                                                                                              log.Status == "Order processed" ? "#6f42c1" : "#ffc107")">
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold small d-flex align-items-center gap-2">
+                                            @log.Status
+                                            @if (!log.IsVisibleToBuyer)
+                                            {
+                                                <span
+                                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                                style="font-size:.65rem;">Internal</span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(log.Note))
+                                        {
+                                            <div class="text-dark small">@log.Note</div>
+                                        }
+                                        <div class="text-dark" style="font-size:.73rem;">
+                                            @log.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                            @if (!string.IsNullOrWhiteSpace(log.UpdatedByName))
+                                            {
+                                                <span class="ms-1">— @log.UpdatedByName</span>
+                                            }
+                                        </div>
+                                    </div>
                                 </div>
                             }
-                        }
-                        else
+                        </div>
+
+                        <!-- Hidden extra logs -->
+                        <div id="statusExtra" class="d-none">
+                            @foreach (var log in logs.Skip(4))
+                            {
+                                <div class="d-flex gap-3 mb-3">
+                                    <div class="d-flex flex-column align-items-center" style="width:18px;">
+                                        <div class="tl-dot" style="background:@(log.Status == OrderStatus.Delivered ? "#198754" :
+                                                                                              log.Status == OrderStatus.Cancelled ? "#dc3545" :
+                                                                                              log.Status.Contains("transit") ? "#0dcaf0" :
+                                                                                              log.Status == "Order processed" ? "#6f42c1" : "#ffc107")">
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold small d-flex align-items-center gap-2">
+                                            @log.Status
+                                            @if (!log.IsVisibleToBuyer)
+                                            {
+                                                <span
+                                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle"
+                                                style="font-size:.65rem;">Internal</span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(log.Note))
+                                        {
+                                            <div class="text-dark small">@log.Note</div>
+                                        }
+                                        <div class="text-dark" style="font-size:.73rem;">
+                                            @log.CreatedAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                                            @if (!string.IsNullOrWhiteSpace(log.UpdatedByName))
+                                            {
+                                                <span class="ms-1">— @log.UpdatedByName</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        @if (logs.Count > 3)
                         {
-                            <p class="text-dark mb-0">This order does not pass through your hub.</p>
+                            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill w-100" id="seeMoreBtn"
+                                    onclick="toggleStatusLogs()">
+                                <i class="bi bi-chevron-down me-1" id="seeMoreIcon"></i>
+                                See more (@(logs.Count - 3) more)
+                            </button>
                         }
                     </div>
                 </div>
-            }
-
         </div><!-- /right col -->
     </div>
 </div>
@@ -592,6 +705,7 @@
 @section Modals {
     <input type="hidden" id="orderNumber" value="@order.OrderNumber" />
     <input type="hidden" id="buyerName" value="@order.Buyer?.FullName" />
+    <input type="hidden" id="buyerNumber" value="@order.DeliveryContactNumber" />
 
     <div class="modal fade" id="confirmModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -613,6 +727,10 @@
                             <div class="col-6">
                                 <small class="text-dark d-block">Buyer</small>
                                 <span id="confirmBuyerName">—</span>
+
+                                <div>
+                                    <span id="confirmBuyerNumber">—</span>
+                                </div>
                             </div>
                             <div class="col-12">
                                 <small class="text-dark d-block">Resolved Destination</small>
@@ -649,6 +767,18 @@
 
 @section Scripts {
 <script>
+            function toggleStatusLogs() {
+            const extra = document.getElementById('statusExtra');
+            const btn = document.getElementById('seeMoreBtn');
+            const count = @(logs.Count - 4);
+
+            extra.classList.toggle('d-none');
+            const isNowHidden = extra.classList.contains('d-none');
+
+            btn.innerHTML = isNowHidden
+            ? `<i class="bi bi-chevron-down me-1"></i>See more (${count} more)`
+            : `<i class="bi bi-chevron-up me-1"></i>See less`;
+            }
 // ─────────────────────────────────────────────────────────────────────────────
 //  CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
@@ -663,7 +793,12 @@ const HUBS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
 ));
 
 const DRIVERS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-    Model.AvailableDrivers.Select(d => new { id = d.Id, name = d.FullName })
+    Model.AvailableDrivers.Select(d => new { 
+        id = d.Id, 
+        name = d.FullName,
+        vehicleType = d.VehicleType,
+        plateNumber = d.PlateNumber
+    })
 ));
 
 const EXISTING_DRIVERS = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(existingDriverMap));
@@ -704,31 +839,31 @@ Object.entries(HUBS).forEach(([key, h]) => {
 const destEl = Object.assign(document.createElement('div'), {
     innerHTML: '<i class="bi bi-house-fill" style="font-size:28px;color:#e53935;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))"></i>'
 });
-@if (isMain)
-{
-    <text>
-    const destMarker = new mapboxgl.Marker({ element: destEl, anchor: 'bottom', draggable: true })
-        .setLngLat([destLng, destLat]).addTo(map);
+            @if (isMain && route == null)
+            {
+                <text>
+                    const destMarker = new mapboxgl.Marker({element: destEl, anchor: 'bottom', draggable: true })
+                    .setLngLat([destLng, destLat]).addTo(map);
 
-    destMarker.on('dragend', () => {
-        const p = destMarker.getLngLat();
-        updateDestination(p.lng, p.lat, null);
-    });
-    map.on('click', e => {
-        destMarker.setLngLat(e.lngLat);
-        updateDestination(e.lngLat.lng, e.lngLat.lat, null);
-    });
-    </text>
-}
-else
-{
-    <text>
-    new mapboxgl.Marker({ element: destEl, anchor: 'bottom' })
-        .setLngLat([destLng, destLat])
-        .setPopup(new mapboxgl.Popup({ offset: 25 }).setText('Delivery Destination'))
-        .addTo(map);
-    </text>
-}
+                    destMarker.on('dragend', () => {
+                    const p = destMarker.getLngLat();
+                    updateDestination(p.lng, p.lat, null);
+                    });
+                    map.on('click', e => {
+                    destMarker.setLngLat(e.lngLat);
+                    updateDestination(e.lngLat.lng, e.lngLat.lat, null);
+                    });
+                </text>
+            }
+            else
+            {
+                <text>
+                    new mapboxgl.Marker({element: destEl, anchor: 'bottom' })
+                    .setLngLat([destLng, destLat])
+                    .setPopup(new mapboxgl.Popup({offset: 25 }).setText('Delivery Destination'))
+                    .addTo(map);
+                </text>
+            }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  MAPBOX DIRECTIONS (turn-by-turn route line)
@@ -881,14 +1016,15 @@ map.on('load', () => drawDirectionsRoute());
                         }
 
                         function buildDriverSelect(name, existingVal) {
-                        let s = `<select class="form-select form-select-sm driver-select" name="${name}" required>`;
-                        s += '<option value="">— Select Driver —</option>';
-                        DRIVERS.forEach(d => {
-                        const sel = existingVal && d.id === existingVal ? 'selected' : '';
-                        s += `<option value="${d.id}" ${sel}>${d.name}</option>`;
-                        });
-                        s += '</select>';
-                        return s;
+                            let s = `<select class="form-select form-select-sm driver-select" name="${name}" required>`;
+                            s += '<option value="">— Select Driver —</option>';
+                            DRIVERS.forEach(d => {
+                                const sel = existingVal && d.id === existingVal ? 'selected' : '';
+                                const vehicle = d.vehicleType ? ` (${d.vehicleType} — ${d.plateNumber})` : '';
+                                s += `<option value="${d.id}" ${sel}>${d.name}${vehicle}</option>`;
+                            });
+                            s += '</select>';
+                            return s;
                         }
 
                         function renderLegRows() {
@@ -999,6 +1135,7 @@ map.on('load', () => drawDirectionsRoute());
                             // Populate from hidden fields
                         document.getElementById('confirmOrderNumber').textContent = document.getElementById('orderNumber').value;
                         document.getElementById('confirmBuyerName').textContent   = document.getElementById('buyerName').value;
+                        document.getElementById('confirmBuyerNumber').textContent = document.getElementById('buyerNumber').value;
                         document.getElementById('confirmAddr').textContent        = addr;
 
                         const stopsEl = document.getElementById('confirmStops');

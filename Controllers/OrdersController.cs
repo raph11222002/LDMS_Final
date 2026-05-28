@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using LDMS_Final.Services;
 
 namespace LDMS_Final.Controllers
 {
@@ -13,11 +14,14 @@ namespace LDMS_Final.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserActivityService _activity;
 
-        public OrdersController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public OrdersController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
+         UserActivityService activity)
         {
             _context = context;
             _userManager = userManager;
+            _activity = activity;
         }
 
         private string GetBuyerId() => _userManager.GetUserId(User)!;
@@ -83,6 +87,7 @@ namespace LDMS_Final.Controllers
                 Status = order.Status,
                 PaymentMethod = order.PaymentMethod,
                 TotalAmount = order.TotalAmount,
+                ShippingFee = order.ShippingFee,
                 DeliveryFullName = order.DeliveryFullName,
                 DeliveryContactNumber = order.DeliveryContactNumber,
                 DeliveryAddress = order.DeliveryAddress,

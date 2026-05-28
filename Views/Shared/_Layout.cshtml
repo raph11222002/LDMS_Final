@@ -38,11 +38,13 @@
                     <!-- User -->
                     <div class="sidebar-user">
                         <div class="user-avatar">@userInitial</div>
-                        <div class="user-info">
-                            <div class="user-name text-capitalize">@fullName</div>
-                            <div class="user-sub">@User.Identity?.Name</div>
+                        <div class="user-info" style="min-width: 0;">
+                            <div class="user-name text-capitalize"
+                                 style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">@fullName</div>
+                            <div class="user-sub" style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+                                @User.Identity?.Name</div>
+                            </div>
                         </div>
-                    </div>
 
                     <hr class="sidebar-divider" />
                 }
@@ -77,6 +79,12 @@
                                 <i class="bi bi-people"></i><span>Admin Accounts</span>
                             </a>
                         </li>
+                            <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center gap-2 @(controller == "OtherUsers" ? "active" : "")"
+                                   asp-controller="OtherUsers" asp-action="Index">
+                                    <i class="bi bi-person-lines-fill"></i><span>Other Users</span>
+                                </a>
+                            </li>
                     }
                     else if (User.IsInRole("Admin"))
                     {
@@ -154,9 +162,21 @@
                     else if (User.IsInRole("Driver"))
                     {
                         <li class="nav-item">
-                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverHome" ? "active" : "")"
-                               asp-controller="DriverHome" asp-action="Index">
-                                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+                                <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverHome" && action == "Index" || action == "OrderDetail" ? "active" : "")"
+                                asp-controller="DriverHome" asp-action="Index">
+                                <i class="bi bi-speedometer2"></i><span>Assigned</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverHome" && action == "Scan" ? "active" : "")"
+                                asp-controller="DriverHome" asp-action="Scan">
+                                <i class="bi bi-qr-code-scan"></i><span>Scan QR</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link d-flex align-items-center gap-2 @(controller == "DriverHome" && action == "Logs" ? "active" : "")"
+                                asp-controller="DriverHome" asp-action="Logs">
+                                <i class="bi bi-journal-text"></i><span>Logs</span>
                             </a>
                         </li>
                     }
@@ -192,7 +212,7 @@
 
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <div class="sidebar-footer mb-4">
+                <div class="sidebar-footer mb-5">
                     <form asp-controller="Account" asp-action="Logout" method="post">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="sidebar-logout">
@@ -207,7 +227,7 @@
         <div class="content-area">
             <div
                 class="mobile-topbar d-flex d-md-none align-items-center justify-content-between px-3 py-2 border-bottom bg-white">
-                <button class="btn btn-light sidebar-toggle" type="button" aria-label="Toggle navigation">
+                <button class="btn btn-light sidebar-toggle fs-3" type="button" aria-label="Toggle navigation">
                     <i class="bi bi-list"></i>
                 </button>
                 <div></div>

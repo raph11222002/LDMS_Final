@@ -4,29 +4,65 @@
     Layout = "_Layout";
 }
 
-<div class="container-fluid py-4 px-4" style="background:#fff; min-height:100vh;">
+<div class="w-100 py-3 px-0 px-md-4" style="background:#fff; min-height:100vh;">
 
     <!-- Search + Filter Bar -->
-    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
-        <form method="get" asp-action="Index" class="d-flex gap-2 flex-grow-1 flex-wrap">
-            <input type="text" name="search" value="@Model.SearchQuery" class="form-control" style="max-width:320px;"
+    <form method="get" asp-action="Index" class="d-flex gap-2 align-items-center mb-4 mt-2 mx-2">
+        <style>
+                    @@media (max-width: 767px) {
+                        .search-input {
+                            height: 45px;
+                            font-size: 18px;
+                        }
+
+                        .filter-btn {
+                            font-size: 22px;
+                            padding: 4px 17px 4px 17px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                    }
+        </style>
+        <div class="position-relative flex-grow-1">
+            <input type="text" name="search" value="@Model.SearchQuery" class="form-control pe-4 search-input"
                    placeholder="Search products, brands..." />
-            <select name="category" class="form-select" style="max-width:200px;" onchange="this.form.submit()">
+            <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3 text-secondary"
+               style="pointer-events:none;"></i>
+        </div>
+
+        <select id="desktopCatSelect"
+                class="form-select flex-shrink-0 d-none d-md-block @(!string.IsNullOrEmpty(Model.SelectedCategory) ? "border-dark fw-semibold" : "")"
+                style="max-width:160px; @(!string.IsNullOrEmpty(Model.SelectedCategory) ? "border-width:2px; background-color:#f0f0f0;" : "")"
+                onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            @foreach (var cat in Model.Categories)
+            {
+                <option value="@cat" selected="@(Model.SelectedCategory == cat)">@cat</option>
+            }
+        </select>
+
+        <!-- Mobile filter icon only -->
+        <div class="d-md-none position-relative">
+            <button type="button"
+                    class="filter-btn border @(!string.IsNullOrEmpty(Model.SelectedCategory) ? "btn-dark rounded-2 border-dark" : "rounded-2 border-light")"
+                    onclick="document.getElementById('mobileCatSelect').click()">
+                @if (!string.IsNullOrEmpty(Model.SelectedCategory))
+                {
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-dark"
+                          style="font-size:.6rem;">•</span>
+                }
+                <i class="bi bi-sliders"></i>
+            </button>
+            <select id="mobileCatSelect" name="category" class="position-absolute opacity-0"
+                    style="top:0;left:0;width:100%;height:100%;cursor:pointer;" onchange="this.form.submit()">
                 <option value="">All Categories</option>
                 @foreach (var cat in Model.Categories)
                 {
                     <option value="@cat" selected="@(Model.SelectedCategory == cat)">@cat</option>
                 }
             </select>
-            <button type="submit" class="btn btn-dark px-4">
-                <i class="bi bi-search me-1"></i> Search
-            </button>
-            @if (!string.IsNullOrEmpty(Model.SearchQuery) || !string.IsNullOrEmpty(Model.SelectedCategory))
-            {
-                <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
-            }
-        </form>
-    </div>
+        </div>
+    </form>
 
     @if (!Model.Products.Any())
     {
@@ -42,7 +78,7 @@
 
         @foreach (var group in grouped)
         {
-            <div class="mb-5">
+            <div class="mb-4 mb-md-5 px-2 px-md-0">
                 <!-- Category Header -->
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h4 class="fw-bold mb-0" style="color:#111;">
@@ -52,10 +88,10 @@
                 </div>
 
                 <!-- Product Grid -->
-                <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-3">
+                <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 g-2 g-md-3 mx-0">
                     @foreach (var product in group)
                     {
-                        <div class="col">
+                        <div class="col px-1 px-md-2">
                             <div class="product-card"
                                  onclick="window.location='@Url.Action("ProductDetail", new { id = product.Id })'">
                                 <div class="product-card-img">
@@ -108,5 +144,21 @@
                 </div>
             </div>
         }
+    }
+
+    @section Scripts {
+        <script>
+                // Sync desktop dropdown → mobile hidden select, then submit
+                document.getElementById('desktopCatSelect').addEventListener('change', function () {
+                    document.getElementById('mobileCatSelect').value = this.value;
+                    this.closest('form').submit();
+                });
+
+                // Mobile select already has name="category", submits directly
+                document.getElementById('mobileCatSelect').addEventListener('change', function () {
+                    document.getElementById('desktopCatSelect').value = this.value;
+                    this.closest('form').submit();
+                });
+        </script>
     }
 </div>

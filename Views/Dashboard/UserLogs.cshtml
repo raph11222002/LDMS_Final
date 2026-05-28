@@ -65,7 +65,7 @@
     </div>
 
     <!-- ── Filter panel ─────────────────────────────────────────────────── -->
-    <div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card shadow-sm rounded-4 mb-4">
         <div class="card-body px-4 py-3">
             <form method="get" asp-action="UserLogs" id="filterForm">
                 <input type="hidden" name="page" value="1" />
@@ -228,7 +228,7 @@
     }
     else
     {
-        <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card shadow-sm rounded-4 mb-4">
             <div class="table-responsive">
                 <table class="table log-table table-hover mb-0">
                     <thead class="table-light">
@@ -352,20 +352,22 @@
     }
 </div>
 
-<!-- ── Detail Modal ─────────────────────────────────────────────────────── -->
-<div class="modal fade" id="logDetailModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content rounded-4 border-0 shadow-lg">
-            <div class="modal-header border-0 pb-0">
-                <h6 class="modal-title fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Log Detail</h6>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body px-4 py-3" id="logDetailBody">
-                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+@section Modals {
+    <!-- ── Detail Modal ─────────────────────────────────────────────────────── -->
+    <div class="modal fade" id="logDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-journal-text me-2 text-primary"></i>Log Detail</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body px-4 py-3" id="logDetailBody">
+                    <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+}
 
 @functions {
     string RoleBadge(string role) => role switch
@@ -412,13 +414,13 @@
 
             body.innerHTML = `
                 <div class="row g-3">
-                    <div class="col-6">
+                    <div class="col-6" style="min-width:0">
                         <small class="text-dark d-block">Full Name</small>
-                        <span class="fw-semibold">${log.fullName}</span>
+                        <span class="fw-semibold" style="word-break:break-word;white-space:normal;">${log.fullName}</span>
                     </div>
-                    <div class="col-6">
+                    <div class="col-6" style="min-width:0">
                         <small class="text-dark d-block">Username</small>
-                        <span>@@${log.userName}</span>
+                        <span style="word-break:break-word;white-space:normal;">${log.userName}</span>
                     </div>
                     <div class="col-12">
                         <small class="text-dark d-block">User ID</small>
@@ -429,7 +431,7 @@
                         <span class="badge bg-primary rounded-pill">${log.role}</span>
                     </div>
                     <div class="col-6">
-                        <small class="text-dark d-block">Action</small>
+                        <small class="text-success d-block">Action</small>
                         <span class="badge bg-dark rounded-pill">${log.action}</span>
                     </div>
                     ${log.description ? `
@@ -446,10 +448,6 @@
                         <small class="text-dark d-block">Entity ID</small>
                         <span class="fw-semibold">${log.entityId ?? '—'}</span>
                     </div>` : ''}
-                    <div class="col-6">
-                        <small class="text-dark d-block">IP Address</small>
-                        <span>${log.ipAddress ?? '—'}</span>
-                    </div>
                     <div class="col-6">
                         <small class="text-dark d-block">Date &amp; Time</small>
                         <span>${date}</span>

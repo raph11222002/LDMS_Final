@@ -663,6 +663,45 @@ namespace LDMS_Final.Migrations
                     b.ToTable("ProductStockLogs");
                 });
 
+            modelBuilder.Entity("LDMS_Final.Models.RiderDeliveredReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DeliveredAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DriverId")
+                        .IsRequired()
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("HubStopId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PhotoPath")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DriverId");
+
+                    b.HasIndex("HubStopId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("RiderDeliveredReports");
+                });
+
             modelBuilder.Entity("LDMS_Final.Models.UserActivityLog", b =>
                 {
                     b.Property<int>("Id")
@@ -992,6 +1031,33 @@ namespace LDMS_Final.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("LDMS_Final.Models.RiderDeliveredReport", b =>
+                {
+                    b.HasOne("LDMS_Final.Models.ApplicationUser", "Driver")
+                        .WithMany()
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LDMS_Final.Models.OrderHubStop", "HubStop")
+                        .WithMany()
+                        .HasForeignKey("HubStopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LDMS_Final.Models.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Driver");
+
+                    b.Navigation("HubStop");
+
+                    b.Navigation("Order");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

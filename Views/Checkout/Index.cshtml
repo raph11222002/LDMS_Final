@@ -29,9 +29,8 @@
         </div>
     }
 
-    <form asp-action="ConfirmOrder" method="post">
+    <form asp-controller="Checkout" asp-action="ConfirmOrder" method="post">
         @Html.AntiForgeryToken()
-
         <div class="row g-4">
 
             <!-- Delivery Info -->
@@ -78,114 +77,113 @@
                                 Pin Drop Location
                                 <span class="text-danger fw-semibold small">(Recommended: Use this Pin Drop Location to
                                     ensure accurate delivery and shipping fee.)</span>
-                                </label>
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="trackLocationBtn"
-                                            onclick="requestLocationPin()">
-                                        Use my current location
-                                    </button>
-                                    <span class="small text-dark">Allow browser location access to auto-place your delivery
-                                        pin.</span>
-                                    </div>
-                                    <div id="map" style="height:340px;border-radius:12px;border:1.5px solid #dee2e6;"></div>
-                                    <div class="form-text">Click on the map to drop a pin on your exact location, or use your
-                                        device location above.</div>
-                                        <div id="pinStatus" class="text-success small mt-1" style="display:none;">
-                                            <i class="bi bi-geo-alt-fill me-1"></i>Pin dropped successfully.
-                                        </div>
-                                        <div id="locationError" class="text-danger small mt-1" style="display:none;"></div>
-                                    </div>
-                                </div>
+                            </label>
+
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="trackLocationBtn"
+                                        onclick="requestLocationPin()">Use my current location</button>
+                                <span class="small text-dark">Allow browser location access to auto-place your deliverypin.</span>
                             </div>
 
-                            <!-- Payment Method -->
-                            <div class="card border-0 rounded-4 shadow-lg">
-                                <div class="card-body p-4">
-                                    <h6 class="fw-semibold mb-3">Payment Method</h6>
-                                    <div class="d-flex flex-column gap-2">
-                                        @foreach (var method in new[] { "COD", "GCash", "Maya" })
-                                        {
-                                            <label class="d-flex align-items-center gap-3 p-3 border rounded-3" style="cursor:pointer;"
-                                                   id="payLabel-@method">
-                                                <input type="radio" asp-for="PaymentMethod" value="@method" class="form-check-input m-0"
-                                                       onchange="highlightPayment('@method')" />
-                                                <span class="fw-semibold">
-                                                    @if (method == "COD")
-                                                    {
-                                                        <i class="bi bi-cash-coin me-2 text-success"></i>
-                                                    }
-                                                    else if (method == "GCash")
-                                                    {
-                                                        <i class="bi bi-phone me-2 text-primary"></i>
-                                                    }
-                                                    else
-                                                    {
-                                                        <i class="bi bi-wallet2 me-2 text-info"></i>
-                                                    }
-                                                    @method
-                                                    @if (method != "COD")
-                                                    {
-                                                        <span class="badge bg-secondary-subtle text-secondary ms-2 fw-normal small">For
-                                                            Testing</span>
-                                                        }
-                                                    </span>
-                                                </label>
-                                            }
-                                        </div>
-                                        <span asp-validation-for="PaymentMethod" class="text-danger small"></span>
-                                    </div>
-                                </div>
+                            <div id="map" style="height:340px;border-radius:12px;border:1.5px solid #dee2e6;"></div>
+                            <div class="form-text">Click on the map to drop a pin on your exact location, or use your device location above.</div>
+                            <div id="pinStatus" class="text-success small mt-1" style="display:none;">
+                                <i class="bi bi-geo-alt-fill me-1"></i>Pin dropped successfully.
                             </div>
-
-                            <!-- Order Summary -->
-                            <div class="col-12 col-lg-5">
-                                <div class="card border-0 rounded-4 shadow-lg position-sticky" style="top:20px;">
-                                    <div class="card-body p-4">
-                                        <h6 class="fw-semibold mb-3">Order Summary</h6>
-
-                                        @foreach (var item in Model.Items)
-                                        {
-                                            <div class="d-flex gap-2 mb-3 align-items-center">
-                                                @if (!string.IsNullOrEmpty(item.ImagePath))
-                                                {
-                                                    <img src="@item.ImagePath"
-                                                         style="width:52px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;" />
-                                                }
-                                                <div class="flex-grow-1">
-                                                    <div class="fw-semibold small" style="color:#111;">@item.ProductName</div>
-                                                    <div class="text-dark small">
-                                                        @item.VariantName @(item.SelectedSize != null ? $"/ {item.SelectedSize}" : "")
-                                                    </div>
-                                                    <div class="small">x @item.Quantity &nbsp; ₱@item.UnitPrice.ToString("N2") each</div>
-                                                </div>
-                                                <div class="fw-bold small flex-shrink-0">₱@item.Subtotal.ToString("N2")</div>
-                                            </div>
-                                        }
-
-                                        <hr />
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span>Shipping Fee</span>
-                                            <span id="shippingFeeText">₱@Model.ShippingFee.ToString("N2")</span>
-                                        </div>
-                                        <div class="form-text small text-muted mb-2">
-                                            Estimated via Davao City warehouse: motorcycle for in-city (within 20 km of any hub),
-                                            multi-van route for out-of-city deliveries.
-                                        </div>
-                                        <div class="d-flex justify-content-between fw-bold fs-6 mb-4">
-                                            <span>Total</span>
-                                            <span id="checkoutGrandTotal">₱@Model.GrandTotal.ToString("N2")</span>
-                                        </div>
-
-                                        <button type="submit" class="btn btn-dark w-100 py-3 rounded-pill fw-semibold">
-                                            <i class="bi bi-bag-check me-2"></i>Confirm Order
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
+                            <div id="locationError" class="text-danger small mt-1" style="display:none;"></div>
                         </div>
-                    </form>
+                    </div>
                 </div>
+
+                <!-- Payment Method -->
+                <div class="card border-0 rounded-4 shadow-lg">
+                    <div class="card-body p-4">
+                        <h6 class="fw-semibold mb-3">Payment Method</h6>
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var method in new[] { "COD", "GCash", "Maya" })
+                            {
+                                <label class="d-flex align-items-center gap-3 p-3 border rounded-3" style="cursor:pointer;" id="payLabel-@method">
+                                    <input type="radio" asp-for="PaymentMethod" value="@method" class="form-check-input m-0" onchange="highlightPayment('@method')" />
+                                    <span class="fw-semibold">
+                                        @if (method == "COD")
+                                        {
+                                            <i class="bi bi-cash-coin me-2 text-success"></i>
+                                        }
+                                        else if (method == "GCash")
+                                        {
+                                            <i class="bi bi-phone me-2 text-primary"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-wallet2 me-2 text-info"></i>
+                                        }
+                                        @method
+                                        @if (method != "COD")
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary ms-2 fw-normal small">For Testing</span>
+                                        }
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                        <span asp-validation-for="PaymentMethod" class="text-danger small"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div class="col-12 col-lg-5">
+                <div class="card border-0 rounded-4 shadow-lg position-sticky" style="top:20px;">
+                    <div class="card-body p-4">
+                        <h6 class="fw-semibold mb-3">Order Summary</h6>
+
+                        @foreach (var item in Model.Items)
+                        {
+                            <div class="d-flex gap-2 mb-3 align-items-center">
+                                @if (!string.IsNullOrEmpty(item.ImagePath))
+                                {
+                                    <img src="@item.ImagePath"
+                                            style="width:52px;height:60px;object-fit:cover;border-radius:8px;flex-shrink:0;" />
+                                }
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold small" style="color:#111;">@item.ProductName</div>
+                                    <div class="text-dark small">
+                                        @item.VariantName @(item.SelectedSize != null ? $"/ {item.SelectedSize}" : "")
+                                    </div>
+
+                                    <div class="small">x @item.Quantity &nbsp; ₱@item.UnitPrice.ToString("N2") each</div>
+
+                                </div>
+
+                                <div class="fw-bold small flex-shrink-0">₱@item.Subtotal.ToString("N2")</div>
+                            </div>
+                        }
+
+                        <hr />
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Shipping Fee</span>
+                            <span id="shippingFeeText">₱@Model.ShippingFee.ToString("N2")</span>
+                        </div>
+
+                        <div class="form-text small text-muted mb-2">
+                            Estimated via Davao City warehouse: motorcycle for in-city (within 20 km of any hub),
+                            multi-van route for out-of-city deliveries.
+                        </div>
+
+                        <div class="d-flex justify-content-between fw-bold fs-6 mb-4">
+                            <span>Total</span>
+                            <span id="checkoutGrandTotal">₱@Model.GrandTotal.ToString("N2")</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-dark w-100 py-3 rounded-pill fw-semibold">
+                            <i class="bi bi-bag-check me-2"></i>Confirm Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
 
                 @section Scripts {
                     <partial name="_ValidationScriptsPartial" />

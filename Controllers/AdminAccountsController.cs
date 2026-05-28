@@ -3,6 +3,7 @@ using LDMS_Final.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using LDMS_Final.Services;
 
 namespace LDMS_Final.Controllers
 {
@@ -10,10 +11,13 @@ namespace LDMS_Final.Controllers
     public class AdminAccountsController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserActivityService _activity;
 
-        public AdminAccountsController(UserManager<ApplicationUser> userManager)
+        public AdminAccountsController(UserManager<ApplicationUser> userManager, 
+            UserActivityService activity)
         {
             _userManager = userManager;
+            _activity = activity;
         }
 
         public async Task<IActionResult> Index()
@@ -70,6 +74,9 @@ namespace LDMS_Final.Controllers
             {
                 await _userManager.AddToRoleAsync(admin, RoleNames.Admin);
                 TempData["Success"] = "Admin account created successfully.";
+                await _activity.LogAsync(User, UserAction.AccountCreated,       // ← ADD
+                    $"Admin account '{admin.UserName}' created.",
+                    "Admin", admin.Id);
                 return RedirectToAction(nameof(Index));
             }
 
@@ -126,6 +133,9 @@ namespace LDMS_Final.Controllers
             if (result.Succeeded)
             {
                 TempData["Success"] = "Admin account updated successfully.";
+                await _activity.LogAsync(User, UserAction.AccountUpdated,       // ← ADD
+                    $"Admin account '{admin.UserName}' updated.",
+                    "Admin", admin.Id);
                 return RedirectToAction(nameof(Index));
             }
 
@@ -149,6 +159,9 @@ namespace LDMS_Final.Controllers
             await _userManager.UpdateAsync(admin);
 
             TempData["Success"] = "Admin account deactivated.";
+            await _activity.LogAsync(User, UserAction.AccountToggled,       // ← ADD
+                $"Admin account '{admin.UserName}' deactivated.",
+                "Admin", admin.Id);
             return RedirectToAction(nameof(Index));
         }
 
@@ -166,6 +179,9 @@ namespace LDMS_Final.Controllers
             await _userManager.UpdateAsync(admin);
 
             TempData["Success"] = "Admin account activated.";
+            await _activity.LogAsync(User, UserAction.AccountToggled,       // ← ADD
+                $"Admin account '{admin.UserName}' activated.",
+                "Admin", admin.Id);
             return RedirectToAction(nameof(Index));
         }
     }

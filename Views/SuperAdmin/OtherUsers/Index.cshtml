@@ -1,0 +1,139 @@
+@model List<LDMS_Final.ViewModels.OtherUserListItemViewModel>
+@{
+    ViewData["Title"] = "Other Users";
+    Layout = "_Layout";
+
+    var availableRoles = ViewBag.AvailableRoles as List<string> ?? new List<string>();
+    var selectedRole = ViewBag.SelectedRole as string;
+    var search = ViewBag.Search as string;
+
+    string GetRoleBadgeClass(string role) => role.ToLower() switch
+    {
+        "buyer" => "bg-success",
+        "driver" => "bg-secondary",
+        "warehousestaff" => "bg-primary",
+        "logisticstaff" => "bg-purple",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">Other Users</h1>
+            <p class="mb-0 text-dark">View all non-admin registered users.</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    <!-- Search & Filter -->
+    <div class="card shadow-sm border-0 rounded-4 mb-3">
+        <div class="card-body">
+            <form method="get" asp-action="Index" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label text-dark fw-semibold">Search</label>
+                    <input type="text" name="search" value="@search" class="form-control"
+                           placeholder="Name, username or email..." />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label text-dark fw-semibold">Filter by Role</label>
+                    <select name="role" class="form-select">
+                        <option value="">All Roles</option>
+                        @foreach (var r in availableRoles)
+                        {
+                            <option value="@r" selected="@(selectedRole == r)">@r</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary w-100">Apply</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary w-100">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Contact</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Any())
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">No users found.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td class="ps-4">@item.UserName</td>
+                                    <td>@item.FullName</td>
+                                    <td>
+                                        <div class="email-cell">@item.Email</div>
+                                    </td>
+                                    <style>
+                                        .email-cell {
+                                            max-width: 180px;
+                                            overflow-x: auto;
+                                            white-space: nowrap;
+                                        }
+
+                                        .email-cell::-webkit-scrollbar {
+                                            height: 4px;
+                                        }
+
+                                        .email-cell::-webkit-scrollbar-track {
+                                            background: transparent;
+                                        }
+
+                                        .email-cell::-webkit-scrollbar-thumb {
+                                            background-color: #adb5bd;
+                                            border-radius: 10px;
+                                        }
+                                    </style>
+                                    <td>@item.ContactNumber</td>
+                                    <td><span class="badge @GetRoleBadgeClass(item.Role)">@item.Role</span></td>
+                                    <style>
+                                        .bg-purple {
+                                            background-color: #6f42c1 !important;
+                                            color: white;
+                                        }
+                                    </style>
+                                    <td>
+                                        @if (item.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>@item.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

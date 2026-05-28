@@ -121,14 +121,18 @@ namespace LDMS_Final.Controllers
             if (!string.IsNullOrEmpty(product.VariantsJson))
             {
                 var parsedVariants = JsonSerializer.Deserialize<List<ProductVariant>>(product.VariantsJson) ?? new();
+
                 foreach (var v in parsedVariants)
                 {
-                    var stock = stockRecords.FirstOrDefault(s => s.VariantName == v.Name);
+                    var variantStock = stockRecords
+                        .Where(s => string.Equals(s.VariantName?.Trim(), v.Name.Trim(), StringComparison.OrdinalIgnoreCase))
+                        .Sum(s => s.Quantity);
+
                     variants.Add(new BuyerVariantViewModel
                     {
                         Name = v.Name,
                         ImagePath = v.ImagePath,
-                        Stock = stock?.Quantity ?? 0
+                        Stock = variantStock
                     });
                 }
             }
@@ -155,11 +159,19 @@ namespace LDMS_Final.Controllers
                 Variants = variants,
                 SizeOptions = stockRecords
                     .Where(s => !string.IsNullOrEmpty(s.SelectedSize))
-                    .GroupBy(s => s.SelectedSize!.Trim())
+                    .GroupBy(s => s.SelectedSize!.Trim(), StringComparer.OrdinalIgnoreCase)
                     .Select(g => new BuyerSizeViewModel
                     {
                         Sizes = g.Key,
                         Stock = g.Sum(s => s.Quantity)
+                    })
+                    .ToList(),
+                Stocks = stockRecords
+                    .Select(s => new BuyerStockViewModel
+                    {
+                        VariantName = s.VariantName,
+                        SelectedSize = s.SelectedSize,
+                        Stock = s.Quantity
                     })
                     .ToList()
             };

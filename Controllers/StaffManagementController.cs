@@ -1,4 +1,4 @@
-using LDMS_Final.Data;
+using LDMS_Final.Services;
 using LDMS_Final.Models;
 using LDMS_Final.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -12,10 +12,12 @@ namespace LDMS_Final.Controllers
     public class StaffManagementController : Controller
     {
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly UserActivityService _activity;
 
-        public StaffManagementController(UserManager<ApplicationUser> userManager)
+        public StaffManagementController(UserManager<ApplicationUser> userManager, UserActivityService activity)
         {
             _userManager = userManager;
+            _activity = activity;
         }
 
         // ── Index ──────────────────────────────────────────────
@@ -117,6 +119,10 @@ namespace LDMS_Final.Controllers
 
                 if (roleResult.Succeeded)
                 {
+                    await _activity.LogAsync(_userManager.GetUserId(User)!, UserAction.AccountCreated,
+                        $"Staff account '{user.FullName}' ({model.SelectedRole}) created.",
+                        "User", user.Id);
+                        
                     TempData["Success"] = $"Staff account '{model.FullName}' created successfully.";
                     return RedirectToAction(nameof(Index));
                 }
@@ -187,6 +193,10 @@ namespace LDMS_Final.Controllers
 
             if (result.Succeeded)
             {
+                await _activity.LogAsync(_userManager.GetUserId(User)!, UserAction.AccountUpdated,
+                    $"Staff account '{user.FullName}' updated.",
+                    "User", user.Id);
+                    
                 TempData["Success"] = $"Staff account '{user.FullName}' updated successfully.";
                 return RedirectToAction(nameof(Index));
             }
@@ -216,6 +226,10 @@ namespace LDMS_Final.Controllers
             user.IsActive = !user.IsActive;
             await _userManager.UpdateAsync(user);
 
+            await _activity.LogAsync(_userManager.GetUserId(User)!, UserAction.AccountToggled,
+                $"Staff account '{user.FullName}' {(user.IsActive ? "activated" : "deactivated")}.",
+                "User", user.Id);
+
             TempData["Success"] = $"'{user.FullName}' has been {(user.IsActive ? "activated" : "deactivated")}.";
             return RedirectToAction(nameof(Index));
         }
@@ -237,6 +251,10 @@ namespace LDMS_Final.Controllers
                 return Forbid();
 
             await _userManager.DeleteAsync(user);
+
+            await _activity.LogAsync(_userManager.GetUserId(User)!, UserAction.AccountDeleted,
+                $"Staff account '{user.FullName}' deleted.",
+                "User", id);
 
             TempData["Success"] = "Staff account deleted successfully.";
             return RedirectToAction(nameof(Index));

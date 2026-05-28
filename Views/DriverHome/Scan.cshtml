@@ -13,7 +13,7 @@
     </div>
 
     <!-- Scanner -->
-    <div class="card border-0 rounded-4 shadow-lg mb-4">
+    <div class="card rounded-4 shadow-lg mb-4">
         <div class="card-body p-4">
             <div id="qr-reader" style="width:100%; border-radius:12px; overflow:hidden;"></div>
             <div class="text-center mt-3">
@@ -23,12 +23,15 @@
                 <button id="stopScanBtn" class="btn btn-outline-secondary rounded-pill px-4 d-none">
                     <i class="bi bi-stop-circle me-2"></i>Stop
                 </button>
+                <button id="flipCameraBtn" class="btn btn-outline-dark rounded-pill px-4 d-none">
+                    <i class="bi bi-arrow-repeat me-2"></i>Flip Camera
+                </button>
             </div>
         </div>
     </div>
 
     <!-- Manual input fallback -->
-    <div class="card border-0 rounded-4 shadow-lg mb-4">
+    <div class="card rounded-4 shadow-lg mb-4">
         <div class="card-body p-4">
             <h6 class="fw-semibold mb-3">
                 <i class="bi bi-keyboard me-2"></i>Or enter order number manually
@@ -44,7 +47,7 @@
     </div>
 
     <!-- Result card -->
-    <div id="resultCard" class="card border-0 rounded-4 shadow-lg d-none">
+    <div id="resultCard" class="card rounded-4 shadow-lg d-none">
         <div class="card-body p-4">
             <h6 class="fw-semibold mb-3">
                 <i class="bi bi-box-seam me-2 text-primary"></i>Order Found
@@ -67,7 +70,7 @@
         </div>
     </div>
 
-    <div id="notFoundCard" class="card border-0 rounded-4 shadow-lg border-danger d-none">
+    <div id="notFoundCard" class="card rounded-4 shadow-lg border-danger d-none">
         <div class="card-body p-4 text-center text-danger">
             <i class="bi bi-exclamation-circle fs-2 mb-2 d-block"></i>
             <div class="fw-semibold" id="notFoundMsg">Order not found or not assigned to you.</div>
@@ -88,28 +91,48 @@
         const notFound = document.getElementById('notFoundCard');
 
         // ── Start camera ──────────────────────────────────────────────
-        startBtn.addEventListener('click', () => {
-        html5QrCode = new Html5Qrcode('qr-reader');
-        html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-        html5QrCode.stop();
-        startBtn.classList.remove('d-none');
-        stopBtn.classList.add('d-none');
-        lookupOrder(decodedText.trim());
-        },
-        () => { }
-        );
-        startBtn.classList.add('d-none');
-        stopBtn.classList.remove('d-none');
+        let facingMode = 'environment'; // default rear camera
+
+        startBtn.addEventListener('click', () => startCamera());
+        stopBtn.addEventListener('click', () => stopCamera());
+
+        document.getElementById('flipCameraBtn').addEventListener('click', async () => {
+        await stopCamera();
+        facingMode = facingMode === 'environment' ? 'user' : 'environment';
+        startCamera();
         });
 
-        stopBtn.addEventListener('click', () => {
-        if (html5QrCode) html5QrCode.stop();
+        function startCamera() {
+            html5QrCode = new Html5Qrcode('qr-reader');
+            html5QrCode.start(
+                { facingMode: facingMode },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    stopCamera();
+                    lookupOrder(decodedText.trim());
+                },
+                () => { }
+            ).catch(err => {
+                // If rear fails, fallback to front
+                if (facingMode === 'environment') {
+                    facingMode = 'user';
+                    startCamera();
+                }
+            });
+            startBtn.classList.add('d-none');
+            stopBtn.classList.remove('d-none');
+            document.getElementById('flipCameraBtn').classList.remove('d-none');
+        }
+
+        async function stopCamera() {
+        if (html5QrCode) {
+        try { await html5QrCode.stop(); } catch (e) { }
+        html5QrCode = null;
+        }
         startBtn.classList.remove('d-none');
         stopBtn.classList.add('d-none');
-        });
+        document.getElementById('flipCameraBtn').classList.add('d-none');
+        }
 
         // ── Manual lookup ──────────────────────────────────────────────
         document.getElementById('manualLookupBtn').addEventListener('click', () => {
@@ -158,7 +181,20 @@
         <i class="bi bi-truck me-2"></i>Start Trip
         </button>
         </form>`;
+
         } else if (data.status === 'InTransit') {
+        // ── Moto driver at buyer location → go to ConfirmDelivery ──
+        if (data.isFinalLeg) {
+        btns.innerHTML = `
+        <form method="post" action="/DriverHome/UpdateStatus">
+        <input type="hidden" name="__RequestVerificationToken" value="${getAntiForgeryToken()}" />
+        <input type="hidden" name="stopId" value="${data.stopId}" />
+        <input type="hidden" name="action" value="arrived" />
+        <button type="submit" class="btn btn-success rounded-pill w-100">
+        <i class="bi bi-camera me-2"></i>Mark Delivered & Upload Photo
+        </button>
+        </form>`;
+        } else {
         btns.innerHTML = `
         <form method="post" action="/DriverHome/UpdateStatus">
         <input type="hidden" name="__RequestVerificationToken" value="${getAntiForgeryToken()}" />
@@ -168,6 +204,7 @@
         <i class="bi bi-check2 me-2"></i>Mark Arrived at Hub
         </button>
         </form>`;
+        }
         }
 
         resultCard.classList.remove('d-none');

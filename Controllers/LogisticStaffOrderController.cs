@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using LDMS_Final.Services;
 
 namespace LDMS_Final.Controllers
 {
@@ -14,15 +15,18 @@ namespace LDMS_Final.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _config;
+        private readonly UserActivityService _activity;
 
         public LogisticStaffOrderController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IConfiguration config)
+            IConfiguration config,
+            UserActivityService activity)
         {
             _context     = context;
             _userManager = userManager;
             _config      = config;
+            _activity = activity;
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -101,6 +105,7 @@ namespace LDMS_Final.Controllers
                 query = _context.Orders
                     .Include(o => o.Items).ThenInclude(i => i.Product)
                     .Include(o => o.Buyer)
+                    .Include(o => o.StatusLogs)
                     .Include(o => o.RouteAssignment).ThenInclude(r => r!.HubStops)
                     .Where(o => o.CreatedByAdminId == companyAdminId
                              && o.RouteAssignment != null
@@ -127,6 +132,7 @@ namespace LDMS_Final.Controllers
             };
 
             ViewBag.IsMainLStaff = IsMain(staff);
+            ViewBag.CurrentStaffId = staff.Id;
             return View(model);
         }
 
@@ -282,8 +288,10 @@ namespace LDMS_Final.Controllers
             order.StatusLogs.Add(new OrderStatusLog
             {
                 Status = "Order processed",
-                Note = $"Route assigned by {staff.FullName}. " +
-                                   $"Hubs: {string.Join(" → ", hubValues.Select(h => DeliveryHubInfo.Hubs[h].ShortName))}.",
+                Note = IsMain(staff)
+                    ? $"Route assigned by {staff.FullName}. (Warehouse Origin)"
+                    : $"Route assigned by {staff.FullName}. " +
+                    $"Hubs: {string.Join(" → ", hubValues.Select(h => DeliveryHubInfo.Hubs[h].ShortName))}.",
                 UpdatedByUserId = staff.Id,
                 UpdatedByName = staff.FullName,
                 IsVisibleToBuyer = false,
@@ -309,6 +317,10 @@ namespace LDMS_Final.Controllers
                 ? (await _userManager.FindByIdAsync(firstStop.AssignedDriverId))?.FullName
                 : "—";
 
+            await _activity.LogAsync(User, UserAction.RouteAssigned,       // ← ADD
+                $"Route assigned for Order {order.OrderNumber}. Hubs: {TempData["RouteHubs"]}.",
+                "Order", order.OrderNumber);
+
             return RedirectToAction(nameof(Detail), new { id = order.Id });
         }
 
@@ -327,8 +339,7 @@ namespace LDMS_Final.Controllers
                     .ThenInclude(o => o.StatusLogs)
                 .FirstOrDefaultAsync(s => s.Id == vm.HubStopId
                     && s.RouteAssignment.Order.CreatedByAdminId == companyAdminId
-                    && (s.StopStatus == HubStopStatus.Arrived
-                    || s.StopStatus == HubStopStatus.Completed));
+                    && s.StopStatus == HubStopStatus.Arrived);
 
             if (stop == null) return NotFound();
 
@@ -345,7 +356,7 @@ namespace LDMS_Final.Controllers
             bool isFinalLeg = nextStop == null;
 
             // ── Validate motorcycle driver for final leg ──────────────────
-            if (isFinalLeg)
+            /*if (isFinalLeg)
             {
                 var driverVehicle = await _context.DriverVehicles
                     .FirstOrDefaultAsync(v => v.DriverId == vm.AssignedDriverId && v.IsActive);
@@ -356,12 +367,54 @@ namespace LDMS_Final.Controllers
                     TempData["Error"] = "Final door-to-door delivery must be assigned to a motorcycle driver.";
                     return RedirectToAction(nameof(Detail), new { id = vm.OrderId });
                 }
+            }*/
+
+            if (isFinalLeg)
+            {
+                var motoStop = new OrderHubStop
+                {
+                    OrderRouteAssignmentId = stop.OrderRouteAssignmentId,
+                    StopOrder = stop.StopOrder + 1,
+                    Hub = stop.Hub,
+                    HubLabel = "Door-to-door delivery",
+                    AssignedDriverId = vm.AssignedDriverId,
+                    DriverLabel = "motorcycle driver",
+                    StopStatus = HubStopStatus.Pending
+                };
+                _context.OrderHubStops.Add(motoStop);
+
+                // ✅ Do NOT complete the hub stop here.
+                // It should stay as Arrived until the moto driver scans start.
             }
 
             var order = stop.RouteAssignment.Order;
 
             // ── Mark current stop as Completed ───────────────────────────
-            stop.StopStatus = HubStopStatus.Completed;
+            //stop.StopStatus = HubStopStatus.Completed;
+
+            // ── Notify old driver they were removed ──────────────────────────
+            if (isFinalLeg && stop.OutgoingDriverId != null && stop.OutgoingDriverId != vm.AssignedDriverId)
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    RecipientUserId = stop.OutgoingDriverId,
+                    Title = "Assignment Removed",
+                    Message = $"You have been unassigned from Order {order.OrderNumber}.",
+                    ActionUrl = $"/DriverHome/OrderDetail/{order.Id}",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            else if (!isFinalLeg && nextStop?.AssignedDriverId != null && nextStop.AssignedDriverId != vm.AssignedDriverId)
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    RecipientUserId = nextStop.AssignedDriverId,
+                    Title = "Assignment Removed",
+                    Message = $"You have been unassigned from Order {order.OrderNumber}.",
+                    ActionUrl = $"/DriverHome/OrderDetail/{order.Id}",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
 
             if (nextStop != null)
             {
@@ -369,21 +422,25 @@ namespace LDMS_Final.Controllers
                 nextStop.AssignedDriverId = vm.AssignedDriverId;
                 nextStop.DriverLabel = $"van driver {nextStop.StopOrder + 1}";
             }
+            /* Remove this entire else block — it's the old approach, conflicts with new motoStop
             else
             {
                 // Final leg — store motorcycle driver on OutgoingDriverId
                 stop.OutgoingDriverId = vm.AssignedDriverId;
                 stop.OutgoingDriverLabel = "motorcycle driver";
-            }
+            } */
 
-            // ── Internal status log ───────────────────────────────────────
+            // ── Status log (internal) ─────────────────────────────────────
             order.StatusLogs.Add(new OrderStatusLog
             {
                 OrderId = order.Id,
                 Status = "Order processed",
-                Note = $"Next leg driver assigned by {staff.FullName} " +
-                                   $"({DeliveryHubInfo.Hubs[stop.Hub].ShortName} hub). " +
-                                   $"Driver: {driver.FullName}.",
+                Note = isFinalLeg
+                    ? $"Motorcycle driver {driver.FullName} assigned for door-to-door delivery " +
+                      $"by {staff.FullName} ({DeliveryHubInfo.Hubs[stop.Hub].ShortName} hub)."
+                    : $"Next leg driver assigned by {staff.FullName} " +
+                      $"({DeliveryHubInfo.Hubs[stop.Hub].ShortName} hub). " +
+                      $"Driver: {driver.FullName}.",
                 UpdatedByUserId = staff.Id,
                 UpdatedByName = staff.FullName,
                 IsVisibleToBuyer = false,
@@ -395,6 +452,11 @@ namespace LDMS_Final.Controllers
 
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            await _activity.LogAsync(User, UserAction.DriverAssigned,      // ← ADD
+                $"Driver {driver.FullName} assigned for Order {order.OrderNumber} " +
+                $"{(isFinalLeg ? "(door-to-door)" : "next leg")}.",
+                "Order", order.OrderNumber);
 
             TempData["Success"] = $"Driver {driver.FullName} assigned for next leg.";
             return RedirectToAction(nameof(Detail), new { id = order.Id });

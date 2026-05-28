@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using LDMS_Final.Services;
 
 namespace LDMS_Final.Controllers
 {
@@ -13,12 +14,14 @@ namespace LDMS_Final.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ApplicationDbContext _context;
+        private readonly UserActivityService _activity;
 
         public DriverManagementController(UserManager<ApplicationUser> userManager,
-        ApplicationDbContext context)
+        ApplicationDbContext context, UserActivityService activity)
         {
             _userManager = userManager;
             _context = context;
+            _activity = activity;
         }
 
         // ── Shared helper: resolves company admin ID for both Admin and LogisticStaff ──
@@ -168,6 +171,10 @@ namespace LDMS_Final.Controllers
                     await _context.SaveChangesAsync();
                 }
 
+                await _activity.LogAsync(currentUser.Id, UserAction.AccountCreated,
+                    $"Driver account '{user.FullName}' created.",
+                    "User", user.Id);
+
                 TempData["Success"] = $"Driver account '{user.FullName}' created successfully.";
                 return RedirectToAction(nameof(Index));
             }
@@ -207,7 +214,8 @@ namespace LDMS_Final.Controllers
         {
             if (!ModelState.IsValid) return View(model);
 
-            var (_, companyAdminId) = await GetContextAsync();
+            var (currentUser, companyAdminId) = await GetContextAsync();
+            if (currentUser == null || string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
             if (string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
 
             var (driver, error) = await GetValidDriverAsync(model.Id, companyAdminId);
@@ -226,6 +234,10 @@ namespace LDMS_Final.Controllers
 
             if (result.Succeeded)
             {
+                await _activity.LogAsync(currentUser.Id, UserAction.AccountUpdated,
+                    $"Driver account '{driver.FullName}' updated.",
+                    "User", driver.Id);
+
                 TempData["Success"] = $"Driver account '{driver.FullName}' updated successfully.";
                 return RedirectToAction(nameof(Index));
             }
@@ -242,7 +254,8 @@ namespace LDMS_Final.Controllers
         [Authorize(Roles = $"{RoleNames.Admin},{RoleNames.LogisticStaff}")]
         public async Task<IActionResult> ToggleStatus(string id)
         {
-            var (_, companyAdminId) = await GetContextAsync();
+            var (currentUser, companyAdminId) = await GetContextAsync();
+            if (currentUser == null || string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
             if (string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
 
             var (driver, error) = await GetValidDriverAsync(id, companyAdminId);
@@ -251,6 +264,10 @@ namespace LDMS_Final.Controllers
             driver!.IsActive = !driver.IsActive;
             driver.UpdatedAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(driver);
+
+            await _activity.LogAsync(currentUser.Id, UserAction.AccountToggled,
+                $"Driver account '{driver.FullName}' {(driver.IsActive ? "activated" : "deactivated")}.",
+                "User", driver.Id);
 
             TempData["Success"] = $"'{driver.FullName}' has been {(driver.IsActive ? "activated" : "deactivated")}.";
             return RedirectToAction(nameof(Index));
@@ -262,13 +279,18 @@ namespace LDMS_Final.Controllers
         [Authorize(Roles = $"{RoleNames.Admin},{RoleNames.LogisticStaff}")]
         public async Task<IActionResult> Delete(string id)
         {
-            var (_, companyAdminId) = await GetContextAsync();
+            var (currentUser, companyAdminId) = await GetContextAsync();
+            if (currentUser == null || string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
             if (string.IsNullOrWhiteSpace(companyAdminId)) return Forbid();
 
             var (driver, error) = await GetValidDriverAsync(id, companyAdminId);
             if (error != null) return error;
 
             await _userManager.DeleteAsync(driver!);
+
+            await _activity.LogAsync(currentUser.Id, UserAction.AccountDeleted,
+                $"Driver account '{driver!.FullName}' deleted.",
+                "User", id);
 
             TempData["Success"] = "Driver account deleted successfully.";
             return RedirectToAction(nameof(Index));

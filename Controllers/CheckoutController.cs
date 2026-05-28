@@ -15,15 +15,18 @@ namespace LDMS_Final.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly OrderService _orderService;
+        private readonly UserActivityService _activity;
 
         public CheckoutController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            OrderService orderService)
+            OrderService orderService,
+            UserActivityService activity)
         {
             _context = context;
             _userManager = userManager;
             _orderService = orderService;
+            _activity = activity;
         }
 
         private string GetBuyerId() => _userManager.GetUserId(User)!;
@@ -437,10 +440,17 @@ namespace LDMS_Final.Controllers
             _context.CartItems.RemoveRange(cartItems);
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("OrderSuccess", new { orderNumber });
+            await _activity.LogAsync(buyerId, UserAction.OrderPlaced,
+    $"Order {orderNumber} placed. Total: ₱{order.TotalAmount:N2}.",
+    "Order", orderNumber);
+
+            TempData["LastOrderNumber"] = orderNumber;
+
+            return RedirectToAction(nameof(OrderSuccess), "Checkout", new { orderNumber });
         }
 
         // ── Order Success ──────────────────────────────────────
+        [HttpGet]
         public IActionResult OrderSuccess(string orderNumber)
         {
             ViewBag.OrderNumber = orderNumber;

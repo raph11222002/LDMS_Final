@@ -26,14 +26,22 @@ namespace LDMS_Final.Controllers
         public async Task<IActionResult> Index()
         {
             var admins = await _userManager.GetUsersInRoleAsync(RoleNames.Admin);
+            var warehousestaff = await _userManager.GetUsersInRoleAsync(RoleNames.WarehouseStaff);
+            var logisticstaff = await _userManager.GetUsersInRoleAsync(RoleNames.LogisticStaff);
+            var driver = await _userManager.GetUsersInRoleAsync(RoleNames.Driver);
             var buyers = await _userManager.GetUsersInRoleAsync(RoleNames.Buyer);
 
+            //var excludedRoles = new[] { RoleNames.Admin, RoleNames.SuperAdmin };
             var todayUtc = DateTime.UtcNow.Date;
 
             var model = new SystemAdminDashboardViewModel
             {
                 AdminCount = admins.Count,
+                WarehouseStaffCount = warehousestaff.Count,
+                LogisticStaffCount = logisticstaff.Count,
+                DriverCount = driver.Count,
                 BuyerCount = buyers.Count,
+                OtherUsersCount = warehousestaff.Count + logisticstaff.Count + driver.Count + buyers.Count,
                 ActiveAdminCount = admins.Count(x => x.IsActive),
                 TotalLogsToday = await _context.UserActivityLogs
                                         .CountAsync(l => l.CreatedAt >= todayUtc),

@@ -1,4 +1,6 @@
 @model LDMS_Final.ViewModels.BuyerProductDetailViewModel
+@using System.Text.Json
+
 @{
     ViewData["Title"] = Model.Name;
     Layout = "_Layout";
@@ -8,9 +10,17 @@
     var sizes = string.IsNullOrEmpty(Model.Sizes)
         ? new List<string>()
         : Model.Sizes.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
-    var sizeOptions = Model.SizeOptions
-        .Select(so => new { Size = so.Sizes?.Trim() ?? string.Empty, so.Stock })
-        .ToList();
+
+    string Normalize(string? value) => (value ?? "").Trim().ToLowerInvariant();
+    string StockKey(string? variant, string? size) => $"{Normalize(variant)}|{Normalize(size)}";
+
+    var stockMap = Model.Stocks.ToDictionary(
+        x => StockKey(x.VariantName, x.SelectedSize),
+        x => x.Stock);
+
+    int GetStock(string? variant, string? size)
+        => stockMap.TryGetValue(StockKey(variant, size), out var qty) ? qty : 0;
+
     var hasVariants = Model.Variants.Any();
     var hasSizes = sizes.Any();
     var canBuy = Model.TotalStock > 0;
@@ -114,23 +124,28 @@
                     <div class="d-flex flex-wrap gap-2" id="variantButtons">
                         @foreach (var v in Model.Variants)
                         {
-                            // If product has sizes, check if any size has stock; otherwise check variant stock
-                            var variantHasStock = hasSizes 
-                                ? sizeOptions.Any(so => so.Stock > 0)
-                                : v.Stock > 0;
-                            var isVariantOutOfStock = !variantHasStock;
-                            
-                            <button type="button" class="variant-btn @(isVariantOutOfStock ? "variant-out-of-stock" : "")" data-variant="@v.Name"
-                                    data-stock="@v.Stock" onclick="selectVariant(this)" @(isVariantOutOfStock ? "disabled=\"disabled\"" : "")
-                                    title="@v.Name @(isVariantOutOfStock ? "(Out of Stock)" : $"({v.Stock} left)")">
+                            var variantQty = hasSizes
+                                ? Model.Stocks
+                                    .Where(s => string.Equals(Normalize(s.VariantName), Normalize(v.Name),
+                                            StringComparison.OrdinalIgnoreCase))
+                                    .Sum(s => s.Stock)
+                                : GetStock(v.Name, null);
+
+                            var isVariantOutOfStock = variantQty <= 0;
+
+                            <button type="button" class="variant-btn @(isVariantOutOfStock ? "variant-out-of-stock" : "")"
+                                    data-variant="@v.Name" data-stock="@variantQty" onclick="selectVariant(this)"
+                                @(isVariantOutOfStock ? "disabled=\"disabled\"" : null)
+                                    title="@v.Name @(isVariantOutOfStock ? "(Out of Stock)" : $"({variantQty} left)")">
                                 @if (!string.IsNullOrEmpty(v.ImagePath))
                                 {
                                     <img src="@v.ImagePath" alt="@v.Name" />
                                 }
                                 else
                                 {
-                                    <span
-                                    style="display:inline-block;padding:6px 14px;font-size:0.85rem;font-weight:500;">@v.Name</span>
+                                    <span style="display:inline-block;padding:6px 14px;font-size:0.85rem;font-weight:500;">
+                                        @v.Name
+                                    </span>
                                 }
                             </button>
                         }
@@ -149,18 +164,23 @@
                 <div class="mb-4">
                     <div class="fw-semibold mb-2" style="font-size:0.9rem;">Select Size</div>
                     <div class="d-flex flex-wrap gap-2" id="sizeButtons">
-                        @foreach (var size in sizes.Select(s => new
+                        @foreach (var size in sizes)
                         {
-                            Size = s,
-                            Stock = sizeOptions.FirstOrDefault(so => string.Equals(so.Size, s, StringComparison.OrdinalIgnoreCase))?.Stock ?? 0
-                        }))
-                        {
-                            var isOutOfStock = size.Stock == 0;
-                            <button type="button" class="size-btn @(isOutOfStock ? "opacity-75 stock-empty" : "")" data-size="@size.Size"
-                                    data-stock="@size.Stock" onclick="selectSize(this)" @(isOutOfStock ? "disabled=\"disabled\"" : "")
-                                    title="@size.Size @(isOutOfStock ? "(Out of Stock)" : $"({size.Stock} left)")">
+                            var sizeQty = hasVariants ? 0 : GetStock(null, size);
+                            var isOutOfStock = !hasVariants && sizeQty <= 0;
 
-                                @size.Size @if (isOutOfStock) { <span class="text-muted small ms-1">—</span> }
+                            <button type="button"
+                                    class="size-btn @(isOutOfStock ? "opacity-75 stock-empty" : "")"
+                                    data-size="@size"
+                                    data-stock="@sizeQty"
+                                    onclick="selectSize(this)"
+                                    @(hasVariants || isOutOfStock ? "disabled=\"disabled\"" : null)
+                                    title="@size @(hasVariants ? "(Select a variant first)" : (isOutOfStock ? "(Out of Stock)" : $"({sizeQty} left)"))">
+                                @size
+                                @if (isOutOfStock)
+                                {
+                                    <span class="text-muted small ms-1">—</span>
+                                }
                             </button>
                         }
                     </div>
@@ -207,7 +227,7 @@
                     <input type="hidden" name="productId" value="@Model.Id" />
                     <input type="hidden" name="returnUrl" value="@Url.Action("ProductDetail", new { id = Model.Id })" />
                     <button type="submit"
-                            class="btn @(Model.IsFavorited ? "btn-danger" : "btn-outline-secondary") w-100 py-3 rounded-pill fw-semibold"
+                        class="btn mb-5 @(Model.IsFavorited ? "btn-danger" : "btn-outline-secondary") w-100 py-3 rounded-pill fw-semibold"
                             style="font-size:1rem;">
                         <i class="bi me-2 @(Model.IsFavorited ? "bi-heart-fill" : "bi-heart")"></i>
                         @(Model.IsFavorited ? "Favorited" : "Favorite")
@@ -237,9 +257,9 @@
 
                 <!-- Favorite -->
                 <a href="@loginReturn"
-                class="btn btn-outline-secondary w-100 py-3 rounded-pill fw-semibold"
-                style="font-size:1rem;">
-                    <i class="bi bi-heart me-2"></i>
+                    class="btn btn-outline-secondary w-100 py-3 rounded-pill fw-semibold mb-4"
+                    style="font-size:1rem;">
+                        <i class="bi bi-heart me-2"></i>
                     Favorite
                 </a>
             }
@@ -248,58 +268,166 @@
 </div>
 
 @section Scripts {
-    <script>
-        let selectedVariant = null;
-        let selectedSize = null;
+<script>
+    let selectedVariant = null;
+    let selectedSize = null;
 
-        function switchMainImage(src, btn) {
-            document.getElementById('mainImage').src = src;
-            document.querySelectorAll('.thumb-strip button, .thumb-strip').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+    const stockMap = @Html.Raw(JsonSerializer.Serialize(stockMap));
+    const hasVariants = @hasVariants.ToString().ToLower();
+    const hasSizes = @hasSizes.ToString().ToLower();
+
+    function normalize(value) {
+        return (value || '').trim().toLowerCase();
+    }
+
+    function stockKey(variant, size) {
+        return `${normalize(variant)}|${normalize(size)}`;
+    }
+
+    function getStock(variant, size) {
+        return stockMap[stockKey(variant, size)] ?? 0;
+    }
+
+    function switchMainImage(src, btn) {
+        document.getElementById('mainImage').src = src;
+        document.querySelectorAll('.thumb-strip button, .thumb-strip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function refreshSizeButtons() {
+        if (!hasSizes) return;
+
+        document.querySelectorAll('#sizeButtons .size-btn').forEach(btn => {
+            const size = btn.dataset.size;
+            let stock = 0;
+
+            if (hasVariants === 'true' || hasVariants === true) {
+                if (!selectedVariant) {
+                    stock = 0;
+                    btn.disabled = true;
+                    btn.title = `${size} (Select a variant first)`;
+                } else {
+                    stock = getStock(selectedVariant, size);
+                    btn.disabled = stock <= 0;
+                    btn.title = stock > 0 ? `${size} (${stock} left)` : `${size} (Out of Stock)`;
+                }
+            } else {
+                stock = getStock(null, size);
+                btn.disabled = stock <= 0;
+                btn.title = stock > 0 ? `${size} (${stock} left)` : `${size} (Out of Stock)`;
+            }
+
+            btn.dataset.stock = stock;
+            btn.classList.toggle('stock-empty', stock <= 0);
+
+            if (stock <= 0) {
+                btn.classList.remove('selected');
+            }
+        });
+
+        if (selectedSize) {
+            const stillEnabled = [...document.querySelectorAll('#sizeButtons .size-btn')]
+                .some(btn => btn.dataset.size === selectedSize && !btn.disabled);
+
+            if (!stillEnabled) {
+                selectedSize = null;
+                const hiddenSize = document.getElementById('hiddenSize');
+                if (hiddenSize) hiddenSize.value = '';
+            }
         }
+    }
 
-        function selectVariant(btn) {
-            if (btn.disabled) return;
+    function selectVariant(btn) {
+        if (btn.disabled) return;
 
-            document.querySelectorAll('#variantButtons .variant-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
+        document.querySelectorAll('#variantButtons .variant-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
 
-            selectedVariant = btn.dataset.variant;
-            document.getElementById('variantName').textContent = selectedVariant;
-            document.getElementById('hiddenVariant').value = selectedVariant;
+        selectedVariant = btn.dataset.variant;
 
+        const variantName = document.getElementById('variantName');
+        if (variantName) variantName.textContent = selectedVariant;
+
+        const hiddenVariant = document.getElementById('hiddenVariant');
+        if (hiddenVariant) hiddenVariant.value = selectedVariant;
+
+        const warning = document.getElementById('variantWarning');
+        if (warning) warning.style.display = 'none';
+
+        selectedSize = null;
+        const hiddenSize = document.getElementById('hiddenSize');
+        if (hiddenSize) hiddenSize.value = '';
+
+        document.querySelectorAll('#sizeButtons .size-btn').forEach(b => b.classList.remove('selected'));
+        refreshSizeButtons();
+
+        const img = btn.querySelector('img');
+        if (img) {
+            const mainImg = document.getElementById('mainImage');
+            if (mainImg) mainImg.src = img.src;
+        }
+    }
+
+    function selectSize(btn) {
+        if (btn.disabled) return;
+
+        document.querySelectorAll('#sizeButtons .size-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+
+        selectedSize = btn.dataset.size;
+
+        const hiddenSize = document.getElementById('hiddenSize');
+        if (hiddenSize) hiddenSize.value = selectedSize;
+
+        const warning = document.getElementById('sizeWarning');
+        if (warning) warning.style.display = 'none';
+    }
+
+    function addToBag(hasSizesParam, hasVariantsParam) {
+        let valid = true;
+
+        if (hasVariantsParam && !selectedVariant) {
             const warning = document.getElementById('variantWarning');
-            if (warning) warning.style.display = 'none';
-
-            const img = btn.querySelector('img');
-            if (img) { const mainImg = document.getElementById('mainImage'); if (mainImg) mainImg.src = img.src; }
+            if (warning) warning.style.display = 'block';
+            valid = false;
         }
 
-        function selectSize(btn) {
-            if (btn.disabled) return;
-
-            document.querySelectorAll('#sizeButtons .size-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-
-            selectedSize = btn.dataset.size;
-            document.getElementById('hiddenSize').value = selectedSize;
-
+        if (hasSizesParam && !selectedSize) {
             const warning = document.getElementById('sizeWarning');
-            if (warning) warning.style.display = 'none';
+            if (warning) warning.style.display = 'block';
+            valid = false;
         }
 
-        function addToBag(hasSizes, hasVariants) {
-            let valid = true;
-            if (hasVariants && !selectedVariant) {
-                document.getElementById('variantWarning').style.display = 'block';
-                valid = false;
+        if (!valid) return;
+
+        const form = document.getElementById('cartForm');
+        if (form) form.submit();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshSizeButtons();
+
+        // Auto-select first available variant
+        if (hasVariants === 'true' || hasVariants === true) {
+
+            const firstAvailableVariant = [...document.querySelectorAll('#variantButtons .variant-btn')]
+                .find(btn => !btn.disabled);
+
+            if (firstAvailableVariant) {
+                selectVariant(firstAvailableVariant);
             }
-            if (hasSizes && !selectedSize) {
-                document.getElementById('sizeWarning').style.display = 'block';
-                valid = false;
-            }
-            if (!valid) return;
-            document.getElementById('cartForm').submit();
         }
-    </script>
+
+        // Auto-select first available size for products WITHOUT variants
+        else if (hasSizes === 'true' || hasSizes === true) {
+
+            const firstAvailableSize = [...document.querySelectorAll('#sizeButtons .size-btn')]
+                .find(btn => !btn.disabled);
+
+            if (firstAvailableSize) {
+                selectSize(firstAvailableSize);
+            }
+        }
+    });
+</script>
 }

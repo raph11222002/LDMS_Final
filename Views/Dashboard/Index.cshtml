@@ -5,81 +5,408 @@
     Layout = "_Layout";
 }
 
-<div class="container-fluid py-4 px-4">
-    <div class="mb-4">
-        <h1 class="fw-bold mb-1 text-dark">System Admin Dashboard</h1>
-    </div>
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
 
-    <div class="row g-4 mb-4">
+    :root {
+        --sa-bg:            #0a0c10;
+        --sa-surface:       #111318;
+        --sa-border:        #1e222b;
+        --sa-accent:        #4f7cff;
+        --sa-green:         #22c55e;
+        --sa-yellow:        #f59e0b;
+        --sa-red:           #ef4444;
+        --sa-teal:          #14b8a6;
+        --sa-muted:         #6b7280;
+        --sa-text:          #e5e7eb;
+        --sa-subtext:       #9ca3af;
+        --sa-table-head:    #0d1017;
+        --sa-table-hover:   #13171f;
+        --sa-quick-bg:      #13171f;
+        --sa-today-bg:      linear-gradient(135deg,#1a1f2e 0%,#111827 100%);
+        --sa-today-border:  #2a3040;
+    }
 
-        <div class="col-12 col-lg-4">
-            <a asp-controller="AdminAccounts" asp-action="Index" class="text-decoration-none">
-                <div class="dashboard-card dashboard-card--blue h-100">
-                    <div class="dashboard-card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h5 class="dashboard-card-title">Admin Accounts</h5>
-                            <div class="dashboard-card-icon"><i class="bi bi-people-fill"></i></div>
-                        </div>
-                        <div class="dashboard-card-number">@Model.AdminCount</div>
-                        <p class="dashboard-card-desc">Click to manage all admin accounts created by the super admin.
-                        </p>
-                    </div>
-                </div>
-            </a>
-        </div>
+    /* ── Light mode overrides ── */
+    .sa-light {
+        --sa-bg:            #f4f6fb;
+        --sa-surface:       #ffffff;
+        --sa-border:        #e2e8f0;
+        --sa-accent:        #2563eb;
+        --sa-green:         #16a34a;
+        --sa-yellow:        #d97706;
+        --sa-red:           #dc2626;
+        --sa-teal:          #0d9488;
+        --sa-muted:         #94a3b8;
+        --sa-text:          #1e293b;
+        --sa-subtext:       #475569;
+        --sa-table-head:    #f8fafc;
+        --sa-table-hover:   #f1f5f9;
+        --sa-quick-bg:      #f8fafc;
+        --sa-today-bg:      linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);
+        --sa-today-border:  #bfdbfe;
+    }
+    .sa-light .sa-header h1    { color: #0f172a; }
+    .sa-light .sa-panel-head h6{ color: #1e293b; }
+    .sa-light .sa-breakdown-count { color: #1e293b; }
+    .sa-light .sa-today-num    { color: #16a34a; }
+    .sa-light .sa-stat--blue   .sa-stat-num { color: #1d4ed8; }
+    .sa-light .sa-stat--green  .sa-stat-num { color: #15803d; }
+    .sa-light .sa-stat--yellow .sa-stat-num { color: #b45309; }
+    .sa-light .sa-stat--teal   .sa-stat-num { color: #0f766e; }
+    .sa-light .sa-stat--red    .sa-stat-num { color: #b91c1c; }
+    .sa-light .sa-stat--purple .sa-stat-num { color: #7e22ce; }
+    .sa-light .sa-badge--admin    { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    .sa-light .sa-badge--super    { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+    .sa-light .sa-badge--logistic { background:#ccfbf1; color:#0f766e; border-color:#5eead4; }
+    .sa-light .sa-badge--warehouse{ background:#fef3c7; color:#b45309; border-color:#fcd34d; }
+    .sa-light .sa-badge--driver   { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    .sa-light .sa-badge--buyer    { background:#dcfce7; color:#15803d; border-color:#86efac; }
+    .sa-light .sa-badge--order    { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    .sa-light .sa-badge--route    { background:#ccfbf1; color:#0f766e; border-color:#5eead4; }
+    .sa-light .sa-badge--account  { background:#dcfce7; color:#15803d; border-color:#86efac; }
+    .sa-light .sa-badge--stock    { background:#fef3c7; color:#b45309; border-color:#fcd34d; }
+    .sa-light .sa-badge--scan     { background:#ede9fe; color:#6d28d9; border-color:#c4b5fd; }
+    .sa-light .sa-badge--cancel   { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+    .sa-light .sa-badge--default  { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    .sa-light .sa-table th        { color:#64748b; }
+    .sa-light .sa-table td        { color:#334155; }
+    .sa-light .sa-quick-btn       { color:#334155; }
 
-        <div class="col-12 col-lg-4">
-            <div class="dashboard-card dashboard-card--teal h-100">
-                <div class="dashboard-card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h5 class="dashboard-card-title">Buyer Accounts</h5>
-                        <div class="dashboard-card-icon"><i class="bi bi-person-badge-fill"></i></div>
-                    </div>
-                    <div class="dashboard-card-number">@Model.BuyerCount</div>
-                    <p class="dashboard-card-desc">Registered buyer accounts in the system.</p>
-                </div>
+    .sa-wrap {
+        font-family: 'DM Sans', sans-serif;
+        background: var(--sa-bg);
+        min-height: 100vh;
+        padding: 2rem 1.5rem;
+        color: var(--sa-text);
+        transition: background .25s, color .25s;
+    }
+
+    /* ── Header ── */
+    .sa-header {
+        margin-bottom: 2rem;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .sa-header h1 {
+        font-family: 'Arial', sans-serif;
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+        font-weight: 800;
+        color: #fff;
+        margin: 0;
+        letter-spacing: -.02em;
+    }
+    .sa-header .sa-sub {
+        font-size: .82rem;
+        color: var(--sa-muted);
+        margin-top: .25rem;
+        font-family: 'DM Mono', monospace;
+    }
+    .sa-header .sa-sub span { color: var(--sa-accent); }
+
+    /* ── Theme toggle ── */
+    .sa-theme-toggle {
+        background: var(--sa-surface);
+        border: 1px solid var(--sa-border);
+        border-radius: 2rem;
+        padding: .4rem .9rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        font-size: .78rem;
+        font-weight: 600;
+        color: var(--sa-subtext);
+        transition: all .2s;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .sa-theme-toggle:hover { border-color: var(--sa-accent); color: var(--sa-accent); }
+    .sa-theme-toggle i { font-size: .95rem; }
+
+    /* ── Stat grid ── */
+    .sa-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .sa-stat {
+        background: var(--sa-surface);
+        border: 1px solid var(--sa-border);
+        border-radius: 1rem;
+        padding: 1.1rem 1.2rem;
+        text-decoration: none;
+        display: block;
+        transition: border-color .2s, transform .15s;
+        position: relative;
+        overflow: hidden;
+    }
+    .sa-stat::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: var(--sa-glow, transparent);
+        opacity: 0;
+        transition: opacity .25s;
+        border-radius: inherit;
+    }
+    .sa-stat:hover { border-color: var(--sa-glow-border, var(--sa-accent)); transform: translateY(-2px); }
+    .sa-stat:hover::before { opacity: .06; }
+
+    .sa-stat-label {
+        font-size: .72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--sa-muted);
+        margin-bottom: .4rem;
+    }
+    .sa-stat-num {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1;
+        color: #fff;
+    }
+    .sa-stat-icon {
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+        font-size: 1.2rem;
+        opacity: .18;
+    }
+    .sa-stat-sub { font-size: .72rem; color: var(--sa-muted); margin-top: .3rem; }
+    .sa-stat-sub b { color: var(--sa-green); }
+
+    .sa-stat--blue  { --sa-glow: #4f7cff; --sa-glow-border: #4f7cff44; }
+    .sa-stat--green { --sa-glow: #22c55e; --sa-glow-border: #22c55e44; }
+    .sa-stat--yellow{ --sa-glow: #f59e0b; --sa-glow-border: #f59e0b44; }
+    .sa-stat--teal  { --sa-glow: #14b8a6; --sa-glow-border: #14b8a644; }
+    .sa-stat--red   { --sa-glow: #ef4444; --sa-glow-border: #ef444444; }
+    .sa-stat--purple{ --sa-glow: #a855f7; --sa-glow-border: #a855f744; }
+
+    .sa-stat--blue   .sa-stat-num { color: #7ba3ff; }
+    .sa-stat--green  .sa-stat-num { color: #4ade80; }
+    .sa-stat--yellow .sa-stat-num { color: #fbbf24; }
+    .sa-stat--teal   .sa-stat-num { color: #2dd4bf; }
+    .sa-stat--red    .sa-stat-num { color: #f87171; }
+    .sa-stat--purple .sa-stat-num { color: #c084fc; }
+
+    /* ── Two-col layout ── */
+    .sa-cols { display: grid; grid-template-columns: 1fr 340px; gap: 1.25rem; }
+    @@media (max-width: 900px) { .sa-cols { grid-template-columns: 1fr; } }
+
+    /* ── Panel ── */
+    .sa-panel {
+        background: var(--sa-surface);
+        border: 1px solid var(--sa-border);
+        border-radius: 1rem;
+        overflow: hidden;
+        transition: background .25s, border-color .25s;
+    }
+    .sa-panel-head {
+        padding: 1rem 1.25rem .75rem;
+        border-bottom: 1px solid var(--sa-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+    }
+    .sa-panel-head h6 {
+        font-family: 'Syne', sans-serif;
+        font-size: .9rem;
+        font-weight: 700;
+        color: #fff;
+        margin: 0;
+    }
+    .sa-panel-head a { font-size: .75rem; color: var(--sa-accent); text-decoration: none; font-weight: 600; white-space: nowrap; }
+    .sa-panel-head a:hover { text-decoration: underline; }
+
+    /* ── Activity table ── */
+    .sa-table { width: 100%; border-collapse: collapse; }
+    .sa-table th {
+        font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+        color: var(--sa-muted); padding: .6rem 1rem;
+        background: var(--sa-table-head);
+        border-bottom: 1px solid var(--sa-border); white-space: nowrap;
+    }
+    .sa-table td {
+        padding: .65rem 1rem; font-size: .81rem;
+        border-bottom: 1px solid var(--sa-border);
+        color: var(--sa-text); vertical-align: middle;
+    }
+    .sa-table tr:last-child td { border-bottom: none; }
+    .sa-table tr:hover td { background: var(--sa-table-hover); }
+
+    /* ── Badges ── */
+    .sa-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: .68rem; font-weight: 700; letter-spacing: .03em; }
+    .sa-badge--admin    { background: #1e3a8a22; color: #93c5fd; border: 1px solid #1e40af55; }
+    .sa-badge--super    { background: #7f1d1d22; color: #fca5a5; border: 1px solid #7f1d1d55; }
+    .sa-badge--logistic { background: #134e4a22; color: #5eead4; border: 1px solid #134e4a55; }
+    .sa-badge--warehouse{ background: #78350f22; color: #fcd34d; border: 1px solid #78350f55; }
+    .sa-badge--driver   { background: #1f293722; color: #9ca3af; border: 1px solid #37415155; }
+    .sa-badge--buyer    { background: #14532d22; color: #86efac; border: 1px solid #14532d55; }
+    .sa-badge--order    { background: #1e3a8a22; color: #93c5fd; border: 1px solid #1e40af44; }
+    .sa-badge--route    { background: #134e4a22; color: #5eead4; border: 1px solid #0f766e44; }
+    .sa-badge--account  { background: #14532d22; color: #86efac; border: 1px solid #16653044; }
+    .sa-badge--stock    { background: #78350f22; color: #fcd34d; border: 1px solid #92400e44; }
+    .sa-badge--scan     { background: #4c1d9522; color: #c4b5fd; border: 1px solid #5b21b644; }
+    .sa-badge--cancel   { background: #7f1d1d22; color: #fca5a5; border: 1px solid #991b1b44; }
+    .sa-badge--default  { background: #1f293733; color: #9ca3af; border: 1px solid #37415144; }
+
+    /* ── Right sidebar ── */
+    .sa-user-breakdown { padding: 1rem 1.25rem; }
+    .sa-breakdown-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: .55rem 0; border-bottom: 1px solid var(--sa-border);
+    }
+    .sa-breakdown-row:last-child { border-bottom: none; }
+    .sa-breakdown-label { display: flex; align-items: center; gap: .6rem; font-size: .82rem; color: var(--sa-subtext); }
+    .sa-breakdown-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sa-breakdown-count { font-family: 'DM Mono', monospace; font-size: .88rem; font-weight: 500; color: #fff; }
+
+    /* ── Quick actions ── */
+    .sa-quick { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .6rem; }
+    .sa-quick-btn {
+        display: flex; align-items: center; gap: .75rem; padding: .7rem 1rem;
+        border-radius: .6rem; background: var(--sa-quick-bg);
+        border: 1px solid var(--sa-border); color: var(--sa-text);
+        text-decoration: none; font-size: .82rem; font-weight: 500;
+        transition: border-color .15s, background .15s;
+    }
+    .sa-quick-btn:hover { border-color: var(--sa-accent); color: var(--sa-accent); }
+    .sa-quick-btn i { font-size: 1rem; color: var(--sa-accent); width: 18px; text-align: center; }
+
+    /* ── Today banner ── */
+    .sa-today {
+        background: var(--sa-today-bg);
+        border: 1px solid var(--sa-today-border);
+        border-radius: 1rem; padding: 1.1rem 1.4rem; margin-bottom: 1.5rem;
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: .75rem; transition: background .25s;
+    }
+    .sa-today-left { display: flex; align-items: center; gap: .75rem; }
+    .sa-today-dot {
+        width: 10px; height: 10px; border-radius: 50%;
+        background: var(--sa-green); box-shadow: 0 0 8px var(--sa-green);
+        animation: sapulse 2s infinite;
+    }
+    @@keyframes sapulse {
+        0%,100% { box-shadow: 0 0 4px #22c55e; }
+        50%      { box-shadow: 0 0 12px #22c55e; }
+    }
+    .sa-today-text { font-size: .85rem; color: var(--sa-subtext); }
+    .sa-today-text b { color: var(--sa-text); }
+    .sa-today-num {
+        font-family: 'DM Sans', sans-serif; font-size: 1.6rem;
+        font-weight: 700; color: var(--sa-green);
+    }
+    .sa-today-num small { font-size: .7rem; color: var(--sa-muted); font-family: 'DM Sans', sans-serif; font-weight: 400; margin-left: 4px; }
+
+    /* ── Empty state ── */
+    .sa-empty { text-align: center; padding: 2.5rem 1rem; color: var(--sa-muted); }
+    .sa-empty i { font-size: 2rem; display: block; margin-bottom: .5rem; opacity: .3; }
+    .sa-empty p { font-size: .82rem; margin: 0; }
+</style>
+
+<div class="sa-wrap" id="saWrap">
+
+    <!-- Header -->
+    <div class="sa-header">
+        <div>
+            <h1>⚡ System Overview</h1>
+            <div class="sa-sub">
+                Super Admin · <span>@DateTime.Now.ToString("dddd, MMMM d, yyyy")</span>
             </div>
         </div>
-
-        <div class="col-12 col-lg-4">
-            <a asp-controller="Dashboard" asp-action="UserLogs" class="text-decoration-none">
-                <div class="dashboard-card dashboard-card--indigo h-100">
-                    <div class="dashboard-card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h5 class="dashboard-card-title">Actions Today</h5>
-                            <div class="dashboard-card-icon"><i class="bi bi-activity"></i></div>
-                        </div>
-                        <div class="dashboard-card-number">@Model.TotalLogsToday</div>
-                        <p class="dashboard-card-desc">Actions recorded today. Click to view full logs.</p>
-                    </div>
-                </div>
-            </a>
-        </div>
-
+        <button class="sa-theme-toggle" onclick="toggleSaTheme()" id="saToggleBtn">
+            <i class="bi bi-sun" id="saToggleIcon"></i>
+            <span id="saToggleLabel">Light Mode</span>
+        </button>
     </div>
 
-    <!-- Recent activity -->
-    <div class="card border-0 shadow-sm rounded-4">
-        <div class="card-header bg-white border-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
-            <h6 class="fw-bold mb-0">
-                <i class="bi bi-clock-history me-2 text-primary"></i>Recent Activity
-            </h6>
-            <a asp-action="UserLogs" class="btn btn-sm btn-outline-dark rounded-pill px-3">
-                View All Logs
-            </a>
+    <!-- Today Activity Banner -->
+    <div class="sa-today">
+        <div class="sa-today-left">
+            <div class="sa-today-dot"></div>
+            <div class="sa-today-text"><b>Live</b> — platform activity today</div>
         </div>
-        <div class="card-body px-4 py-3">
+        <div class="d-flex align-items-baseline gap-2">
+            <div class="sa-today-num">
+                @Model.TotalLogsToday
+                <small>actions logged</small>
+            </div>
+            <a asp-action="UserLogs" class="sa-badge sa-badge--default" style="text-decoration:none;">View all →</a>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="sa-stat-grid">
+        <a asp-controller="AdminAccounts" asp-action="Index" class="sa-stat sa-stat--blue">
+            <div class="sa-stat-icon"><i class="bi bi-shield-check"></i></div>
+            <div class="sa-stat-label">Admins</div>
+            <div class="sa-stat-num">@Model.AdminCount</div>
+            <div class="sa-stat-sub"><b>@Model.ActiveAdminCount</b> active</div>
+        </a>
+        <a asp-controller="OtherUsers" asp-action="Index" class="sa-stat sa-stat--teal">
+            <div class="sa-stat-icon"><i class="bi bi-boxes"></i></div>
+            <div class="sa-stat-label">Warehouse</div>
+            <div class="sa-stat-num">@Model.WarehouseStaffCount</div>
+            <div class="sa-stat-sub">staff members</div>
+        </a>
+        <a asp-controller="OtherUsers" asp-action="Index" class="sa-stat sa-stat--purple">
+            <div class="sa-stat-icon"><i class="bi bi-diagram-3"></i></div>
+            <div class="sa-stat-label">Logistics</div>
+            <div class="sa-stat-num">@Model.LogisticStaffCount</div>
+            <div class="sa-stat-sub">staff members</div>
+        </a>
+        <a asp-controller="OtherUsers" asp-action="Index" class="sa-stat sa-stat--yellow">
+            <div class="sa-stat-icon"><i class="bi bi-truck"></i></div>
+            <div class="sa-stat-label">Drivers</div>
+            <div class="sa-stat-num">@Model.DriverCount</div>
+            <div class="sa-stat-sub">registered</div>
+        </a>
+        <a asp-controller="OtherUsers" asp-action="Index" class="sa-stat sa-stat--green">
+            <div class="sa-stat-icon"><i class="bi bi-bag-heart"></i></div>
+            <div class="sa-stat-label">Buyers</div>
+            <div class="sa-stat-num">@Model.BuyerCount</div>
+            <div class="sa-stat-sub">registered</div>
+        </a>
+        <a asp-action="UserLogs" class="sa-stat sa-stat--red">
+            <div class="sa-stat-icon"><i class="bi bi-activity"></i></div>
+            <div class="sa-stat-label">Total Users</div>
+            <div class="sa-stat-num">@Model.OtherUsersCount</div>
+            <div class="sa-stat-sub">excl. admins</div>
+        </a>
+    </div>
+
+    <!-- Main two-col layout -->
+    <div class="sa-cols">
+
+        <!-- Left: Recent Activity -->
+        <div class="sa-panel">
+            <div class="sa-panel-head">
+                <h6><i class="bi bi-clock-history me-2" style="color:var(--sa-accent);"></i>Recent Activity</h6>
+                <a asp-action="UserLogs">View all logs →</a>
+            </div>
             @if (!Model.RecentActivity.Any())
             {
-                <p class="text-dark mb-0 small">No activity recorded yet.</p>
+                <div class="sa-empty">
+                    <i class="bi bi-journal-x"></i>
+                    <p>No activity recorded yet.</p>
+                </div>
             }
             else
             {
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+                    <table class="sa-table">
+                        <thead>
                             <tr>
-                                <th class="ps-4">User</th>
+                                <th style="padding-left:1.25rem;">User</th>
                                 <th>Role</th>
                                 <th>Action</th>
                                 <th>Description</th>
@@ -90,25 +417,14 @@
                             @foreach (var log in Model.RecentActivity)
                             {
                                 <tr>
-                                    <td class="ps-4">
-                                        <div class="fw-semibold small">@log.FullName</div>
-                                        <div class="text-dark" style="font-size:.7rem;">@@@log.UserName</div>
+                                    <td style="padding-left:1.25rem;">
+                                        <div style="font-weight:600;font-size:.82rem;">@log.FullName</div>
+                                        <div style="font-size:.7rem;color:var(--sa-muted);font-family:'DM Mono',monospace;">@@@log.UserName</div>
                                     </td>
-                                    <td>
-                                        <span class="badge rounded-pill @RoleBadge(log.Role)" style="font-size:.68rem;">
-                                            @log.Role
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge rounded-pill @ActionBadge(log.Action)" style="font-size:.68rem;">
-                                            @log.Action
-                                        </span>
-                                    </td>
-                                    <td class="text-dark small"
-                                        style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                        @log.Description
-                                    </td>
-                                    <td class="text-dark text-nowrap" style="font-size:.72rem;">
+                                    <td><span class="sa-badge @RoleBadgeSa(log.Role)">@log.Role</span></td>
+                                    <td><span class="sa-badge @ActionBadgeSa(log.Action)">@log.Action</span></td>
+                                    <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sa-subtext);font-size:.78rem;">@log.Description</td>
+                                    <td style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--sa-muted);white-space:nowrap;">
                                         @log.CreatedAt.ToLocalTime().ToString("MMM d, h:mm tt")
                                     </td>
                                 </tr>
@@ -118,32 +434,122 @@
                 </div>
             }
         </div>
+
+        <!-- Right sidebar -->
+        <div class="d-flex flex-column gap-3">
+
+            <!-- User Breakdown -->
+            <div class="sa-panel">
+                <div class="sa-panel-head">
+                    <h6><i class="bi bi-people me-2" style="color:var(--sa-teal);"></i>User Breakdown</h6>
+                </div>
+                <div class="sa-user-breakdown">
+                    <div class="sa-breakdown-row">
+                        <div class="sa-breakdown-label"><div class="sa-breakdown-dot" style="background:#60a5fa;"></div>Admins</div>
+                        <span class="sa-breakdown-count">@Model.AdminCount</span>
+                    </div>
+                    <div class="sa-breakdown-row">
+                        <div class="sa-breakdown-label"><div class="sa-breakdown-dot" style="background:#2dd4bf;"></div>Warehouse Staff</div>
+                        <span class="sa-breakdown-count">@Model.WarehouseStaffCount</span>
+                    </div>
+                    <div class="sa-breakdown-row">
+                        <div class="sa-breakdown-label"><div class="sa-breakdown-dot" style="background:#c084fc;"></div>Logistic Staff</div>
+                        <span class="sa-breakdown-count">@Model.LogisticStaffCount</span>
+                    </div>
+                    <div class="sa-breakdown-row">
+                        <div class="sa-breakdown-label"><div class="sa-breakdown-dot" style="background:#fbbf24;"></div>Drivers</div>
+                        <span class="sa-breakdown-count">@Model.DriverCount</span>
+                    </div>
+                    <div class="sa-breakdown-row">
+                        <div class="sa-breakdown-label"><div class="sa-breakdown-dot" style="background:#4ade80;"></div>Buyers</div>
+                        <span class="sa-breakdown-count">@Model.BuyerCount</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="sa-panel">
+                <div class="sa-panel-head">
+                    <h6><i class="bi bi-lightning me-2" style="color:var(--sa-yellow);"></i>Quick Actions</h6>
+                </div>
+                <div class="sa-quick">
+                    <a asp-controller="AdminAccounts" asp-action="Create" class="sa-quick-btn">
+                        <i class="bi bi-person-plus"></i>Create Admin Account
+                    </a>
+                    <a asp-controller="OtherUsers" asp-action="Index" class="sa-quick-btn">
+                        <i class="bi bi-people"></i>Manage All Users
+                    </a>
+                    <a asp-action="UserLogs" class="sa-quick-btn">
+                        <i class="bi bi-journal-text"></i>View Full Activity Logs
+                    </a>
+                    <a asp-action="ExportLogs" class="sa-quick-btn">
+                        <i class="bi bi-download"></i>Export Logs CSV
+                    </a>
+                </div>
+            </div>
+
+        </div>
     </div>
+
 </div>
 
+@section Scripts {
+<script>
+    const THEME_KEY = 'sa-theme';
+    const wrap      = document.getElementById('saWrap');
+    const icon      = document.getElementById('saToggleIcon');
+    const label     = document.getElementById('saToggleLabel');
+
+    function applyTheme(mode) {
+        if (mode === 'light') {
+            wrap.classList.add('sa-light');
+            icon.className  = 'bi bi-moon';
+            label.textContent = 'Dark Mode';
+        } else {
+            wrap.classList.remove('sa-light');
+            icon.className  = 'bi bi-sun';
+            label.textContent = 'Light Mode';
+        }
+    }
+
+    function toggleSaTheme() {
+        const current = localStorage.getItem(THEME_KEY) || 'dark';
+        const next    = current === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(THEME_KEY, next);
+        applyTheme(next);
+    }
+
+    // Apply saved preference on load
+    applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+</script>
+}
+
 @functions {
-    static string RoleBadge(string role) => role switch
+    static string RoleBadgeSa(string role) => role switch
     {
-        "Admin" => "bg-primary",
-        "SuperAdmin" => "bg-danger",
-        "LogisticStaff" => "bg-info text-dark",
-        "WarehouseStaff" => "bg-warning text-dark",
-        "Driver" => "bg-secondary",
-        "Buyer" => "bg-success",
-        _ => "bg-light text-dark border"
+        "Admin"          => "sa-badge--admin",
+        "SuperAdmin"     => "sa-badge--super",
+        "LogisticStaff"  => "sa-badge--logistic",
+        "WarehouseStaff" => "sa-badge--warehouse",
+        "Driver"         => "sa-badge--driver",
+        "Buyer"          => "sa-badge--buyer",
+        _                => "sa-badge--default"
     };
-    static string ActionBadge(string action) => action switch
+
+    static string ActionBadgeSa(string action) => action switch
     {
-        UserAction.OrderApproved => "bg-success",
-        UserAction.OrderPlaced => "bg-primary",
-        UserAction.OrderCancelled => "bg-danger",
-        UserAction.RouteAssigned => "bg-info text-dark",
-        UserAction.DriverAssigned => "bg-info text-dark",
-        UserAction.ProductCreated or
-        UserAction.ProductUpdated => "bg-secondary",
-        UserAction.AccountCreated => "bg-dark",
-        UserAction.AccountDeleted => "bg-danger",
-        UserAction.AccountToggled => "bg-warning text-dark",
-        _ => "bg-light text-dark border"
+        "Order Placed"           => "sa-badge--order",
+        "Order Approved"         => "sa-badge--order",
+        "Order Cancelled"        => "sa-badge--cancel",
+        "Route Assigned"         => "sa-badge--route",
+        "Driver Assigned"        => "sa-badge--route",
+        "Order Scanned"          => "sa-badge--scan",
+        "Product Created"        => "sa-badge--stock",
+        "Product Updated"        => "sa-badge--stock",
+        "Stock Updated"          => "sa-badge--stock",
+        "Account Created"        => "sa-badge--account",
+        "Account Updated"        => "sa-badge--account",
+        "Account Status Toggled" => "sa-badge--account",
+        _                        => "sa-badge--default"
     };
 }

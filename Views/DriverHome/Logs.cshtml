@@ -1,0 +1,407 @@
+@model LDMS_Final.ViewModels.DriverLogsViewModel
+@{
+    ViewData["Title"] = "My Logs";
+    Layout = "_Layout";
+}
+
+<style>
+    .log-tab-btn {
+        border: none;
+        background: transparent;
+        color: #6c757d;
+        font-size: .82rem;
+        font-weight: 600;
+        padding: .45rem .9rem;
+        border-radius: 2rem;
+        transition: .15s;
+        white-space: nowrap;
+    }
+    .log-tab-btn.active {
+        background: #0d6efd;
+        color: #fff;
+    }
+    .log-tab-btn:not(.active):hover {
+        background: #f0f4ff;
+        color: #0d6efd;
+    }
+    .tab-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .tab-scroll::-webkit-scrollbar { display: none; }
+
+    .log-row {
+        border-left: 3px solid transparent;
+        transition: background .12s;
+    }
+    .log-row:hover { background: #f8f9ff; }
+    .log-row.border-primary { border-left-color: #0d6efd; }
+    .log-row.border-warning  { border-left-color: #ffc107; }
+    .log-row.border-success  { border-left-color: #198754; }
+    .log-row.border-secondary{ border-left-color: #adb5bd; }
+
+    .stat-pill {
+        border-radius: 1rem;
+        padding: .35rem .8rem;
+        font-size: .78rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #adb5bd;
+    }
+    .empty-state i { font-size: 2.5rem; display: block; margin-bottom: .5rem; }
+    .vehicle-badge {
+        background: #f0f4ff;
+        border: 1px solid #c7d7fd;
+        border-radius: .75rem;
+        padding: .5rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: .82rem;
+        color: #1a3c8f;
+        font-weight: 600;
+    }
+</style>
+
+<div class="container-fluid py-3 px-2 px-sm-4" style="background:#fff; min-height:100vh;">
+
+    <!-- Header -->
+    <div class="mb-3 d-flex align-items-start justify-content-between flex-wrap gap-2">
+        <div>
+            <h1 class="fw-bold mb-1 fs-4" style="color:#111;">
+                <i class="bi bi-journal-text me-2 text-primary"></i>My Logs
+            </h1>
+            <p class="text-dark mb-0 small">@Model.Driver.FullName's activity history</p>
+        </div>
+        @if (Model.Vehicle != null)
+        {
+            <div class="vehicle-badge">
+                <i class="bi bi-truck"></i>
+                @Model.Vehicle.VehicleType — @Model.Vehicle.PlateNumber
+            </div>
+        }
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="stat-pill bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-list-check"></i> @Model.TotalAssigned Total
+        </span>
+        <span class="stat-pill bg-warning bg-opacity-10 text-warning">
+            <i class="bi bi-hourglass-split"></i> @Model.TotalPending Pending
+        </span>
+        <span class="stat-pill" style="background:#fff3cd;color:#856404;">
+            <i class="bi bi-truck"></i> @Model.TotalInTransit In Transit
+        </span>
+        <span class="stat-pill bg-success bg-opacity-10 text-success">
+            <i class="bi bi-check-circle"></i> @Model.TotalCompleted Completed
+        </span>
+        <span class="stat-pill bg-secondary bg-opacity-10 text-secondary">
+            <i class="bi bi-camera"></i> @Model.TotalReports Reports Filed
+        </span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-scroll mb-3">
+        <div class="d-flex gap-1 pb-1">
+            <a asp-action="Logs" asp-route-tab="deliveries"
+               class="log-tab-btn @(Model.ActiveTab == "deliveries" ? "active" : "")">
+                <i class="bi bi-truck me-1"></i>Hub Stops
+            </a>
+            <a asp-action="Logs" asp-route-tab="reports"
+               class="log-tab-btn @(Model.ActiveTab == "reports" ? "active" : "")">
+                <i class="bi bi-camera me-1"></i>Delivery Reports
+            </a>
+            <a asp-action="Logs" asp-route-tab="statuslogs"
+               class="log-tab-btn @(Model.ActiveTab == "statuslogs" ? "active" : "")">
+                <i class="bi bi-activity me-1"></i>Status Updates
+            </a>
+            <a asp-action="Logs" asp-route-tab="notifications"
+               class="log-tab-btn @(Model.ActiveTab == "notifications" ? "active" : "")">
+                <i class="bi bi-bell me-1"></i>Notifications
+            </a>
+        </div>
+    </div>
+
+    <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-0">
+
+            <!-- ══ TAB 1: Hub Stops (orderhubstops) ══════════════════════════ -->
+            @if (Model.ActiveTab == "deliveries")
+            {
+                <div class="px-3 px-sm-4 pt-3 pb-1 border-bottom">
+                    <h6 class="fw-bold mb-0 small text-dark text-uppercase tracking-wide">
+                        Hub Stop History — from <code>orderhubstops</code>
+                    </h6>
+                </div>
+
+                @if (!Model.AllStops.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>No hub stop records yet.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" style="font-size:.82rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4">Order #</th>
+                                    <th>Buyer</th>
+                                    <th>Hub / Leg</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Departed</th>
+                                    <th>Arrived</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var stop in Model.AllStops)
+                                {
+                                    var order = stop.RouteAssignment.Order;
+                                    bool isFinal = stop.DriverLabel == "motorcycle driver";
+                                    string rowBorder = stop.StopStatus switch {
+                                        HubStopStatus.Completed  => "border-success",
+                                        HubStopStatus.InTransit  => "border-warning",
+                                        HubStopStatus.Arrived    => "border-success",
+                                        _                        => "border-primary"
+                                    };
+                                    <tr class="log-row @rowBorder">
+                                        <td class="ps-4 fw-semibold">
+                                            <a asp-action="OrderDetail" asp-route-id="@order.Id"
+                                               class="text-decoration-none text-primary">
+                                                @order.OrderNumber
+                                            </a>
+                                        </td>
+                                        <td>@(order.Buyer?.FullName ?? "—")</td>
+                                        <td>
+                                            <span class="badge bg-light text-dark border" style="font-size:.72rem;">
+                                                @(isFinal ? "Door-to-door" : stop.HubLabel)
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge @(isFinal ? "bg-warning text-dark" : "bg-info text-dark")"
+                                                  style="font-size:.7rem;">
+                                                @(isFinal ? "Motorcycle" : "Van / Leg " + (stop.StopOrder + 1))
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge rounded-pill
+                                                @(stop.StopStatus == HubStopStatus.Completed || stop.StopStatus == HubStopStatus.Arrived ? "bg-success" :
+                                                  stop.StopStatus == HubStopStatus.InTransit ? "bg-warning text-dark" : "bg-primary")"
+                                                  style="font-size:.7rem;">
+                                                @stop.StopStatus
+                                            </span>
+                                        </td>
+                                        <td class="text-dark">
+                                            @(stop.DepartedFromPrevAt.HasValue
+                                                ? stop.DepartedFromPrevAt.Value.ToLocalTime().ToString("MMM dd, h:mm tt")
+                                                : "—")
+                                        </td>
+                                        <td class="text-dark">
+                                            @(stop.ArrivedAt.HasValue
+                                                ? stop.ArrivedAt.Value.ToLocalTime().ToString("MMM dd, h:mm tt")
+                                                : "—")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+
+            <!-- ══ TAB 2: Delivery Reports (riderdeliveredreports) ══════════ -->
+            @if (Model.ActiveTab == "reports")
+            {
+                <div class="px-3 px-sm-4 pt-3 pb-1 border-bottom">
+                    <h6 class="fw-bold mb-0 small text-dark text-uppercase">
+                        Delivery Reports — from <code>riderdeliveredreports</code>
+                    </h6>
+                </div>
+
+                @if (!Model.DeliveryReports.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-camera"></i>No delivery reports filed yet.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var report in Model.DeliveryReports)
+                    {
+                        <div class="log-row border-success px-3 px-sm-4 py-3 border-bottom d-flex flex-column flex-sm-row gap-3 align-items-start">
+                            <!-- Photo thumbnail -->
+                            @if (!string.IsNullOrEmpty(report.PhotoPath))
+                            {
+                                <img src="@report.PhotoPath"
+                                     alt="Proof"
+                                     class="rounded-3 flex-shrink-0"
+                                     style="width:72px;height:72px;object-fit:cover;border:2px solid #dee2e6;" />
+                            }
+                            else
+                            {
+                                <div class="rounded-3 bg-light d-flex align-items-center justify-content-center flex-shrink-0"
+                                     style="width:72px;height:72px;color:#adb5bd;">
+                                    <i class="bi bi-image fs-4"></i>
+                                </div>
+                            }
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold text-dark" style="font-size:.88rem;">
+                                    <a asp-action="OrderDetail" asp-route-id="@report.OrderId"
+                                       class="text-decoration-none text-primary">
+                                        @report.Order.OrderNumber
+                                    </a>
+                                </div>
+                                <div class="small text-dark mb-1">
+                                    <i class="bi bi-person me-1"></i>@(report.Order.Buyer?.FullName ?? "—")
+                                </div>
+                                @if (!string.IsNullOrEmpty(report.Notes))
+                                {
+                                    <div class="small" style="color:#444;">
+                                        <i class="bi bi-chat-left-text me-1 text-secondary"></i>@report.Notes
+                                    </div>
+                                }
+                                <div class="small text-dark mt-1">
+                                    <i class="bi bi-clock me-1"></i>
+                                    @report.DeliveredAt.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                                </div>
+                            </div>
+                            <span class="badge bg-success align-self-start" style="font-size:.72rem;">
+                                <i class="bi bi-check-circle me-1"></i>Delivered
+                            </span>
+                        </div>
+                    }
+                }
+            }
+
+            <!-- ══ TAB 3: Status Logs (orderstatuslogs) ══════════════════════ -->
+            @if (Model.ActiveTab == "statuslogs")
+            {
+                <div class="px-3 px-sm-4 pt-3 pb-1 border-bottom">
+                    <h6 class="fw-bold mb-0 small text-dark text-uppercase">
+                        Status Updates I Made — from <code>orderstatuslogs</code>
+                    </h6>
+                </div>
+
+                @if (!Model.StatusLogs.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-activity"></i>No status update records yet.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" style="font-size:.82rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-4">Order #</th>
+                                    <th>Status Set</th>
+                                    <th>Note</th>
+                                    <th>Visible to Buyer</th>
+                                    <th>Date & Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var log in Model.StatusLogs)
+                                {
+                                    <tr class="log-row border-primary">
+                                        <td class="ps-4 fw-semibold">
+                                            <a asp-action="OrderDetail" asp-route-id="@log.OrderId"
+                                               class="text-decoration-none text-primary">
+                                                @(log.Order?.OrderNumber ?? $"Order #{log.OrderId}")
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary"
+                                                  style="font-size:.72rem;">
+                                                @log.Status
+                                            </span>
+                                        </td>
+                                        <td class="text-dark" style="max-width:260px;word-break:break-word;">
+                                            @log.Note
+                                        </td>
+                                        <td>
+                                            @if (log.IsVisibleToBuyer)
+                                            {
+                                                <span class="badge bg-success" style="font-size:.68rem;">Yes</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary" style="font-size:.68rem;">Internal</span>
+                                            }
+                                        </td>
+                                        <td class="text-dark">
+                                            @log.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+
+            <!-- ══ TAB 4: Notifications ══════════════════════════════════════ -->
+            @if (Model.ActiveTab == "notifications")
+            {
+                <div class="px-3 px-sm-4 pt-3 pb-1 border-bottom">
+                    <h6 class="fw-bold mb-0 small text-dark text-uppercase">
+                        Notifications — from <code>notifications</code>
+                    </h6>
+                </div>
+
+                @if (!Model.Notifications.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-bell-slash"></i>No notifications yet.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var notif in Model.Notifications)
+                    {
+                        <div class="log-row @(notif.IsRead ? "border-secondary" : "border-primary") px-3 px-sm-4 py-3 border-bottom">
+                            <div class="d-flex align-items-start gap-2">
+                                <div class="rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center mt-1"
+                                     style="width:30px;height:30px;
+                                            background:@(notif.IsRead ? "#f0f0f0" : "#e8f0fe");
+                                            color:@(notif.IsRead ? "#adb5bd" : "#0d6efd");">
+                                    <i class="bi bi-bell" style="font-size:.75rem;"></i>
+                                </div>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="fw-semibold" style="font-size:.85rem;color:@(notif.IsRead ? "#6c757d" : "#111");">
+                                        @notif.Title
+                                    </div>
+                                    <div class="small text-dark">@notif.Message</div>
+                                    <div class="small text-dark mt-1">
+                                        <i class="bi bi-clock me-1"></i>
+                                        @notif.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy h:mm tt")
+                                    </div>
+                                </div>
+                                @if (!notif.IsRead)
+                                {
+                                    <span class="badge bg-primary rounded-pill flex-shrink-0" style="font-size:.65rem;">New</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary rounded-pill flex-shrink-0" style="font-size:.65rem;">Read</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            }
+
+        </div>
+    </div>
+</div>

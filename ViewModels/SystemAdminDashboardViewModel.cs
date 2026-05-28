@@ -6,6 +6,10 @@ namespace LDMS_Final.ViewModels
     {
         public int AdminCount { get; set; }
         public int BuyerCount { get; set; }
+        public int DriverCount { get; set; }
+        public int WarehouseStaffCount { get; set; }
+        public int LogisticStaffCount { get; set; }
+        public int OtherUsersCount { get; set; }
         public int ActiveAdminCount { get; set; }
         public int TotalLogsToday { get; set; }
         public List<UserActivityLog> RecentActivity { get; set; } = new();
